@@ -1,4 +1,8 @@
-# TradingBook - Advanced Trading Journal
+# Tr## 📸 Screenshot
+
+![TradingBook Interface](https://raw.githubusercontent.com/appatalks/TradingBook/main/assets/tradingbook-screenshot.png)
+
+*TradingBook's clean and intuitive interface showing the dashboard with P&L calendar and trade analytics*Book - Advanced Trading Journal
 
 A comprehensive, open-source trading journal application built with Electron and React. TradingBook provides all the features of premium trading journals like TradingVue, but completely free and with full data ownership.
 
