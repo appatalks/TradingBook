@@ -22,7 +22,7 @@ function createWindow() {
     show: false
   });
 
-  const startUrl = false // Force production mode for testing
+  const startUrl = isDev
     ? 'http://localhost:3000' 
     : `file://${path.join(__dirname, '../build/index.html')}`;
   
