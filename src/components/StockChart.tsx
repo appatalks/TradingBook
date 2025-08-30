@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -44,11 +44,26 @@ const StockChart: React.FC<StockChartProps> = ({ symbol, trades, onClose }) => {
   const [stockData, setStockData] = useState<StockDataPoint[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const modalRef = useRef<HTMLDivElement>(null);
 
   // Filter trades for this symbol
   const symbolTrades = trades.filter(trade => 
     trade.symbol === symbol && trade.entryDate && trade.exitPrice !== undefined
   );
+
+  // Handle click outside to close modal
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (modalRef.current && !modalRef.current.contains(event.target as Node)) {
+        onClose();
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [onClose]);
 
   useEffect(() => {
     fetchStockData();
@@ -172,18 +187,43 @@ const StockChart: React.FC<StockChartProps> = ({ symbol, trades, onClose }) => {
   const chartData = {
     labels: stockData.map(point => point.date),
     datasets: [
+      // High-Low line (candlestick body simulation)
+      {
+        label: `${symbol} High`,
+        data: stockData.map(point => point.high),
+        borderColor: 'rgba(156, 163, 175, 0.3)',
+        backgroundColor: 'transparent',
+        borderWidth: 1,
+        fill: false,
+        tension: 0,
+        pointRadius: 0,
+        pointHoverRadius: 4,
+      },
+      {
+        label: `${symbol} Low`,
+        data: stockData.map(point => point.low),
+        borderColor: 'rgba(156, 163, 175, 0.3)',
+        backgroundColor: 'transparent',
+        borderWidth: 1,
+        fill: '-1',
+        fillColor: 'rgba(156, 163, 175, 0.1)',
+        tension: 0,
+        pointRadius: 0,
+        pointHoverRadius: 4,
+      },
+      // Close price line (main trend)
       {
         label: `${symbol} Close Price`,
         data: stockData.map(point => point.close),
         borderColor: 'rgb(59, 130, 246)',
         backgroundColor: 'rgba(59, 130, 246, 0.1)',
-        borderWidth: 2,
-        fill: true,
+        borderWidth: 3,
+        fill: false,
         tension: 0.1,
         pointRadius: 0,
         pointHoverRadius: 6,
       },
-      // Add trade markers
+      // Add trade entry markers
       ...symbolTrades.map((trade, index) => ({
         label: `${trade.side} - ${trade.entryDate.toDateString()}`,
         data: stockData.map(point => {
@@ -283,7 +323,7 @@ const StockChart: React.FC<StockChartProps> = ({ symbol, trades, onClose }) => {
   if (loading) {
     return (
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-4xl w-full mx-4 h-96">
+        <div ref={modalRef} className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-4xl w-full mx-4 h-96">
           <div className="flex justify-between items-center mb-4">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
               Loading {symbol} Chart...
@@ -306,7 +346,7 @@ const StockChart: React.FC<StockChartProps> = ({ symbol, trades, onClose }) => {
   if (error) {
     return (
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4">
+        <div ref={modalRef} className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4">
           <div className="flex justify-between items-center mb-4">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
               Chart Error
@@ -321,7 +361,7 @@ const StockChart: React.FC<StockChartProps> = ({ symbol, trades, onClose }) => {
           <div className="text-center">
             <p className="text-red-600 dark:text-red-400 mb-4">{error}</p>
             <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-              Showing demo data instead. To use real data, get a free API key from Alpha Vantage.
+              Showing demo data instead. Using Yahoo Finance free API.
             </p>
             <button
               onClick={fetchStockData}
@@ -336,8 +376,8 @@ const StockChart: React.FC<StockChartProps> = ({ symbol, trades, onClose }) => {
   }
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-6xl w-full mx-4 h-5/6">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div ref={modalRef} className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-6xl w-full h-5/6 flex flex-col">
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
             {symbol} Stock Chart
@@ -350,16 +390,16 @@ const StockChart: React.FC<StockChartProps> = ({ symbol, trades, onClose }) => {
           </button>
         </div>
         
-        <div className="h-full pb-16">
+        <div className="flex-1 min-h-0 mb-4">
           <Line data={chartData} options={options} />
         </div>
         
         {symbolTrades.length > 0 && (
-          <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+          <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg mt-4">
             <h4 className="font-medium mb-2">Trade Summary for {symbol}:</h4>
             <div className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
               <div>Total Trades: {symbolTrades.length}</div>
-              <div className="flex space-x-4">
+              <div className="flex flex-wrap gap-4">
                 <span>🔺 Entry markers show buy/sell points</span>
                 <span>⚫ Exit markers show trade closes</span>
                 <span className="text-green-600">Green = Profit</span>
