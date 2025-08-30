@@ -25,7 +25,7 @@ const PnLCalendar: React.FC<PnLCalendarProps> = ({ calendarData, month, year, on
     const date = new Date(year, month, day);
     const isWeekend = date.getDay() === 0 || date.getDay() === 6; // Sunday = 0, Saturday = 6
     
-    let baseClass = 'flex flex-col items-center justify-center text-center rounded-lg border-2 min-h-[80px] w-full transition-all duration-200 hover:scale-105 hover:shadow-lg';
+    let baseClass = 'flex flex-col items-center justify-center text-center rounded-lg border-2 min-h-[70px] w-full transition-all duration-200 hover:scale-105 hover:shadow-lg';
     
     if (isWeekend) {
       // Weekend styling - gray but still interactive
@@ -111,12 +111,6 @@ const PnLCalendar: React.FC<PnLCalendarProps> = ({ calendarData, month, year, on
 
   return (
     <div>
-      <div className="text-center mb-4">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-          {monthNames[month]} {year}
-        </h3>
-      </div>
-      
       {/* Day headers */}
       <div className="grid grid-cols-7 gap-2 mb-4">
         {dayNames.map(day => (
@@ -127,26 +121,26 @@ const PnLCalendar: React.FC<PnLCalendarProps> = ({ calendarData, month, year, on
       </div>
       
       {/* Calendar grid */}
-      <div className="grid grid-cols-7 gap-2 mb-6">
+      <div className="grid grid-cols-7 gap-2 mb-4">
         {days}
       </div>
 
-      {/* Legend */}
-      <div className="mt-6 flex flex-wrap items-center justify-center gap-4 text-sm">
-        <div className="flex items-center space-x-2">
-          <div className="w-5 h-5 bg-red-300 dark:bg-red-700 border border-red-400 dark:border-red-600 rounded"></div>
+      {/* Legend - positioned inline with last week if possible */}
+      <div className="flex flex-wrap items-center justify-end gap-3 text-xs">
+        <div className="flex items-center space-x-1">
+          <div className="w-3 h-3 bg-red-300 dark:bg-red-700 border border-red-400 dark:border-red-600 rounded"></div>
           <span className="text-gray-600 dark:text-gray-400">Loss</span>
         </div>
-        <div className="flex items-center space-x-2">
-          <div className="w-5 h-5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded"></div>
+        <div className="flex items-center space-x-1">
+          <div className="w-3 h-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded"></div>
           <span className="text-gray-600 dark:text-gray-400">No trades</span>
         </div>
-        <div className="flex items-center space-x-2">
-          <div className="w-5 h-5 bg-green-300 dark:bg-green-700 border border-green-400 dark:border-green-600 rounded"></div>
+        <div className="flex items-center space-x-1">
+          <div className="w-3 h-3 bg-green-300 dark:bg-green-700 border border-green-400 dark:border-green-600 rounded"></div>
           <span className="text-gray-600 dark:text-gray-400">Profit</span>
         </div>
-        <div className="flex items-center space-x-2">
-          <div className="w-5 h-5 bg-gray-200 dark:bg-gray-600 border border-gray-300 dark:border-gray-500 rounded"></div>
+        <div className="flex items-center space-x-1">
+          <div className="w-3 h-3 bg-gray-200 dark:bg-gray-600 border border-gray-300 dark:border-gray-500 rounded"></div>
           <span className="text-gray-600 dark:text-gray-400">Weekend</span>
         </div>
       </div>

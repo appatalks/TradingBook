@@ -104,30 +104,6 @@ const Dashboard: React.FC<DashboardProps> = ({ trades }) => {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Dashboard</h1>
-        <div className="flex space-x-4">
-          <select
-            value={selectedMonth}
-            onChange={(e) => setSelectedMonth(Number(e.target.value))}
-            className="px-3 py-2 border border-gray-300 rounded-md dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-          >
-            {Array.from({ length: 12 }, (_, i) => (
-              <option key={i} value={i}>
-                {new Date(0, i).toLocaleDateString('default', { month: 'long' })}
-              </option>
-            ))}
-          </select>
-          <select
-            value={selectedYear}
-            onChange={(e) => setSelectedYear(Number(e.target.value))}
-            className="px-3 py-2 border border-gray-300 rounded-md dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-          >
-            {Array.from({ length: 10 }, (_, i) => (
-              <option key={i} value={new Date().getFullYear() - 5 + i}>
-                {new Date().getFullYear() - 5 + i}
-              </option>
-            ))}
-          </select>
-        </div>
       </div>
 
       {/* Performance Metrics */}
@@ -160,15 +136,43 @@ const Dashboard: React.FC<DashboardProps> = ({ trades }) => {
         {/* P&L Calendar */}
         <div className="lg:col-span-2">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
-              P&L Calendar
-            </h2>
-            <PnLCalendar
-              calendarData={calendarData}
-              month={selectedMonth}
-              year={selectedYear}
-              onDayClick={handleDayClick}
-            />
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+                P&L Calendar
+              </h2>
+              <div className="flex items-center space-x-4">
+                <select
+                  value={selectedMonth}
+                  onChange={(e) => setSelectedMonth(Number(e.target.value))}
+                  className="px-2 py-1 text-sm border border-gray-300 rounded-md dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                >
+                  {Array.from({ length: 12 }, (_, i) => (
+                    <option key={i} value={i}>
+                      {new Date(0, i).toLocaleDateString('default', { month: 'long' })}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  value={selectedYear}
+                  onChange={(e) => setSelectedYear(Number(e.target.value))}
+                  className="px-2 py-1 text-sm border border-gray-300 rounded-md dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                >
+                  {Array.from({ length: 10 }, (_, i) => (
+                    <option key={i} value={new Date().getFullYear() - 5 + i}>
+                      {new Date().getFullYear() - 5 + i}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div className="transform scale-90 origin-top-left">
+              <PnLCalendar
+                calendarData={calendarData}
+                month={selectedMonth}
+                year={selectedYear}
+                onDayClick={handleDayClick}
+              />
+            </div>
           </div>
         </div>
 
