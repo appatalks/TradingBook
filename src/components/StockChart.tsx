@@ -12,6 +12,9 @@ import {
 import { Line } from 'react-chartjs-2';
 import { Trade } from '../types/Trade';
 
+// StockChart component using Yahoo Finance API (same approach as ticker.sh)
+// No API key required, uses the same endpoint as your ticker.sh script
+
 ChartJS.register(
   CategoryScale,
   LinearScale,
@@ -56,44 +59,65 @@ const StockChart: React.FC<StockChartProps> = ({ symbol, trades, onClose }) => {
       setLoading(true);
       setError(null);
       
-      // Use Alpha Vantage free API (requires API key)
-      // Alternative: Use Yahoo Finance API proxy or other free services
-      const API_KEY = 'demo'; // Users will need to get their own free API key
-      const response = await fetch(
-        `https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=${symbol}&apikey=${API_KEY}`
-      );
+      // Yahoo Finance API (same as ticker.sh) - No API key required!
+      const YAHOO_API_ENDPOINT = 'https://query1.finance.yahoo.com/v8/finance/chart/';
+      const YAHOO_API_SUFFIX = '?interval=1d&range=3mo'; // 3 months of data
+      
+      // Preflight request to get cookies (mimicking ticker.sh)
+      try {
+        await fetch('https://finance.yahoo.com', {
+          method: 'GET',
+          mode: 'no-cors',
+          headers: {
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+            'User-Agent': 'Chrome/115.0.0.0 Safari/537.36'
+          }
+        });
+      } catch {
+        // Ignore preflight errors
+      }
+      
+      const yahooUrl = `${YAHOO_API_ENDPOINT}${symbol}${YAHOO_API_SUFFIX}`;
+      const response = await fetch(yahooUrl, {
+        headers: {
+          'User-Agent': 'Chrome/115.0.0.0 Safari/537.36'
+        }
+      });
       
       if (!response.ok) {
-        throw new Error('Failed to fetch stock data');
+        throw new Error(`Yahoo Finance API error: ${response.status}`);
       }
       
       const data = await response.json();
       
-      if (data['Error Message']) {
-        throw new Error('Invalid symbol or API limit reached');
+      if (data.chart?.error || !data.chart?.result?.[0]) {
+        throw new Error('Invalid symbol or no data available');
       }
       
-      if (data['Note']) {
-        throw new Error('API rate limit reached. Please try again later.');
+      const result = data.chart.result[0];
+      const timestamps = result.timestamp;
+      const quotes = result.indicators?.quote?.[0];
+      
+      if (!timestamps || !quotes) {
+        throw new Error('No price data available');
       }
       
-      const timeSeries = data['Time Series (Daily)'];
-      if (!timeSeries) {
-        throw new Error('No stock data available');
-      }
+      // Convert Yahoo Finance data to our format
+      const chartData: StockDataPoint[] = timestamps.map((timestamp: number, index: number) => {
+        const date = new Date(timestamp * 1000);
+        return {
+          date: date.toISOString().split('T')[0],
+          open: quotes.open?.[index] || 0,
+          high: quotes.high?.[index] || 0,
+          low: quotes.low?.[index] || 0,
+          close: quotes.close?.[index] || 0,
+          volume: quotes.volume?.[index] || 0
+        };
+      }).filter((point: StockDataPoint) => point.close > 0); // Filter out invalid data points
       
-      // Convert to our format and sort by date
-      const chartData: StockDataPoint[] = Object.entries(timeSeries)
-        .map(([date, values]: [string, any]) => ({
-          date,
-          open: parseFloat(values['1. open']),
-          high: parseFloat(values['2. high']),
-          low: parseFloat(values['3. low']),
-          close: parseFloat(values['4. close']),
-          volume: parseInt(values['5. volume'])
-        }))
-        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-        .slice(-90); // Last 90 days
+      if (chartData.length === 0) {
+        throw new Error('No valid price data found');
+      }
       
       setStockData(chartData);
     } catch (err) {
