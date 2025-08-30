@@ -32,15 +32,15 @@ function createWindow() {
   const primaryDisplay = screen.getPrimaryDisplay();
   const { width: screenWidth, height: screenHeight } = primaryDisplay.workAreaSize;
   
-  // Calculate optimal window size (85% of screen size, with larger minimums for trading interface)
-  const windowWidth = Math.max(1600, Math.min(screenWidth * 0.85, 1920));
-  const windowHeight = Math.max(1000, Math.min(screenHeight * 0.85, 1200));
+  // Calculate optimal window size (70% of screen size, with reasonable minimums)
+  const windowWidth = Math.max(1200, Math.min(screenWidth * 0.7, 1400));
+  const windowHeight = Math.max(800, Math.min(screenHeight * 0.7, 900));
   
   mainWindow = new BrowserWindow({
     width: windowWidth,
     height: windowHeight,
-    minWidth: 1400,
-    minHeight: 800,
+    minWidth: 1100,
+    minHeight: 700,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
