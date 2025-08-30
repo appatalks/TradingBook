@@ -1,0 +1,88 @@
+export interface Trade {
+  id?: number;
+  symbol: string;
+  side: 'BUY' | 'SELL' | 'LONG' | 'SHORT';
+  quantity: number;
+  entryPrice: number;
+  exitPrice?: number;
+  entryDate: Date;
+  exitDate?: Date;
+  pnl?: number;
+  commission: number;
+  strategy?: string;
+  notes?: string;
+  tags?: string[];
+  screenshots?: string[];
+  assetType: 'STOCK' | 'OPTION' | 'CRYPTO' | 'FOREX';
+  // Options specific
+  optionType?: 'CALL' | 'PUT';
+  strikePrice?: number;
+  expirationDate?: Date;
+}
+
+export interface TradeFilter {
+  startDate?: Date;
+  endDate?: Date;
+  symbol?: string;
+  strategy?: string;
+  assetType?: string;
+  minPnL?: number;
+  maxPnL?: number;
+  tags?: string[];
+}
+
+export interface PerformanceMetrics {
+  totalTrades: number;
+  winningTrades: number;
+  losingTrades: number;
+  winRate: number;
+  totalPnL: number;
+  averageWin: number;
+  averageLoss: number;
+  profitFactor: number;
+  sharpeRatio: number;
+  maxDrawdown: number;
+  largestWin: number;
+  largestLoss: number;
+}
+
+export interface CalendarDay {
+  date: Date;
+  pnl: number;
+  tradeCount: number;
+  winRate: number;
+}
+
+export interface Strategy {
+  id?: number;
+  name: string;
+  description?: string;
+  color?: string;
+}
+
+export interface Tag {
+  id?: number;
+  name: string;
+  color?: string;
+}
+
+declare global {
+  interface Window {
+    electronAPI: {
+      // File operations
+      onImportTrades: (callback: (event: any, filePath: string) => void) => void;
+      onExportData: (callback: (event: any) => void) => void;
+      onToggleTheme: (callback: (event: any) => void) => void;
+      
+      // Database operations
+      saveTrade: (trade: Omit<Trade, 'id'>) => Promise<Trade>;
+      getTrades: (filters: TradeFilter) => Promise<Trade[]>;
+      updateTrade: (id: number, trade: Partial<Trade>) => Promise<Trade>;
+      deleteTrade: (id: number) => Promise<{ deleted: number }>;
+      
+      // Analytics
+      getPerformanceMetrics: (dateRange: { startDate?: Date; endDate?: Date }) => Promise<PerformanceMetrics>;
+      getCalendarData: (month: number, year: number) => Promise<CalendarDay[]>;
+    };
+  }
+}

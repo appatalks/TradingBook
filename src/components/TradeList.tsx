@@ -1,0 +1,222 @@
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Trade } from '../types/Trade';
+
+interface TradeListProps {
+  trades: Trade[];
+  onUpdate: (id: number, trade: Partial<Trade>) => Promise<void>;
+  onDelete: (id: number) => Promise<void>;
+}
+
+const TradeList: React.FC<TradeListProps> = ({ trades, onUpdate, onDelete }) => {
+  const navigate = useNavigate();
+  const [filter, setFilter] = useState('');
+  const [sortBy, setSortBy] = useState<'entryDate' | 'symbol' | 'pnl'>('entryDate');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+
+  const filteredTrades = trades
+    .filter(trade => 
+      trade.symbol.toLowerCase().includes(filter.toLowerCase()) ||
+      trade.strategy?.toLowerCase().includes(filter.toLowerCase()) ||
+      trade.notes?.toLowerCase().includes(filter.toLowerCase())
+    )
+    .sort((a, b) => {
+      let aValue, bValue;
+      
+      switch (sortBy) {
+        case 'symbol':
+          aValue = a.symbol;
+          bValue = b.symbol;
+          break;
+        case 'pnl':
+          aValue = a.pnl || 0;
+          bValue = b.pnl || 0;
+          break;
+        case 'entryDate':
+        default:
+          aValue = new Date(a.entryDate).getTime();
+          bValue = new Date(b.entryDate).getTime();
+          break;
+      }
+
+      if (aValue < bValue) return sortOrder === 'asc' ? -1 : 1;
+      if (aValue > bValue) return sortOrder === 'asc' ? 1 : -1;
+      return 0;
+    });
+
+  const formatDate = (date: Date) => {
+    return date.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  const getPnLColor = (pnl?: number) => {
+    if (!pnl) return 'text-gray-500 dark:text-gray-400';
+    return pnl >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400';
+  };
+
+  const handleDelete = async (id: number) => {
+    if (window.confirm('Are you sure you want to delete this trade?')) {
+      await onDelete(id);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Trades</h1>
+        <div className="flex space-x-4">
+          <input
+            type="text"
+            placeholder="Search trades..."
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            className="px-3 py-2 border border-gray-300 rounded-md dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+          />
+          <select
+            value={`${sortBy}-${sortOrder}`}
+            onChange={(e) => {
+              const [field, order] = e.target.value.split('-');
+              setSortBy(field as 'entryDate' | 'symbol' | 'pnl');
+              setSortOrder(order as 'asc' | 'desc');
+            }}
+            className="px-3 py-2 border border-gray-300 rounded-md dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+          >
+            <option value="entryDate-desc">Date (Newest)</option>
+            <option value="entryDate-asc">Date (Oldest)</option>
+            <option value="symbol-asc">Symbol (A-Z)</option>
+            <option value="symbol-desc">Symbol (Z-A)</option>
+            <option value="pnl-desc">P&L (Highest)</option>
+            <option value="pnl-asc">P&L (Lowest)</option>
+          </select>
+        </div>
+      </div>
+
+      {filteredTrades.length === 0 ? (
+        <div className="text-center py-12">
+          <p className="text-gray-500 dark:text-gray-400 text-lg">
+            {trades.length === 0 ? 'No trades found' : 'No trades match your search'}
+          </p>
+          {trades.length === 0 && (
+            <button
+              onClick={() => navigate('/trades/new')}
+              className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+            >
+              Add Your First Trade
+            </button>
+          )}
+        </div>
+      ) : (
+        <div className="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+              <thead className="bg-gray-50 dark:bg-gray-900">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    Symbol
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    Side
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    Quantity
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    Entry Price
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    Exit Price
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    P&L
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    Date
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    Strategy
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                {filteredTrades.map((trade) => (
+                  <tr key={trade.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <span className="font-medium text-gray-900 dark:text-white">
+                          {trade.symbol}
+                        </span>
+                        <span className="ml-2 text-xs bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 px-2 py-1 rounded">
+                          {trade.assetType}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`px-2 py-1 text-xs rounded-full ${
+                        trade.side === 'BUY' || trade.side === 'LONG'
+                          ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400'
+                          : 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400'
+                      }`}>
+                        {trade.side}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-gray-900 dark:text-white">
+                      {trade.quantity}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-gray-900 dark:text-white">
+                      ${trade.entryPrice.toFixed(2)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-gray-900 dark:text-white">
+                      {trade.exitPrice ? `$${trade.exitPrice.toFixed(2)}` : '-'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`font-semibold ${getPnLColor(trade.pnl)}`}>
+                        {trade.pnl !== undefined 
+                          ? `${trade.pnl >= 0 ? '+' : ''}$${trade.pnl.toFixed(2)}`
+                          : '-'
+                        }
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                      {formatDate(trade.entryDate)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {trade.strategy && (
+                        <span className="text-xs bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400 px-2 py-1 rounded">
+                          {trade.strategy}
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
+                      <button
+                        onClick={() => navigate(`/trades/edit/${trade.id}`)}
+                        className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => trade.id && handleDelete(trade.id)}
+                        className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300"
+                      >
+                        Delete
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default TradeList;
