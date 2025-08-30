@@ -1,6 +1,6 @@
 ---
 name: Feature request
-about: Suggest an idea for TradeTrack
+about: Suggest an idea for TradingBook
 title: '[FEATURE] '
 labels: 'enhancement'
 assignees: 'appatalks'

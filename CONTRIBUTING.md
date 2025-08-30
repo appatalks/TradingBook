@@ -1,6 +1,6 @@
-# Contributing to TradeTrack
+# Contributing to TradingBook
 
-Thank you for your interest in contributing to TradeTrack! This document outlines the guidelines for contributing to this project.
+Thank you for your interest in contributing to TradingBook! This document outlines the guidelines for contributing to this project.
 
 ## 🚀 Quick Start
 
@@ -138,7 +138,7 @@ Before submitting feature requests:
 
 ## 🎯 Project Goals
 
-TradeTrack aims to be:
+TradingBook aims to be:
 - **Privacy-focused**: All data stays local
 - **Professional-grade**: Enterprise-quality features
 - **Free and open-source**: No subscription fees
@@ -155,7 +155,7 @@ Keep these goals in mind when contributing.
 
 ## 📄 License
 
-By contributing to TradeTrack, you agree that your contributions will be licensed under the MIT License.
+By contributing to TradingBook, you agree that your contributions will be licensed under the MIT License.
 
 ## 🙏 Recognition
 
@@ -169,4 +169,4 @@ Contributors are recognized in:
 - **GitHub**: [@appatalks](https://github.com/appatalks)
 - **Issues**: Use GitHub Issues for project-related questions
 
-Thank you for contributing to TradeTrack! 🚀
+Thank you for contributing to TradingBook! 🚀

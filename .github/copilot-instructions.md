@@ -1,7 +1,7 @@
-# GitHub Copilot Instructions for TradeTrack
+# GitHub Copilot Instructions for TradingBook
 
 ## Project Overview
-TradeTrack is an advanced trading journal application built with Electron, React, and TypeScript. It provides comprehensive trade tracking, analytics, and portfolio management capabilities with a focus on privacy and offline functionality.
+TradingBook is an advanced trading journal application built with Electron, React, and TypeScript. It provides comprehensive trade tracking, analytics, and portfolio management capabilities with a focus on privacy and offline functionality.
 
 ## Architecture Guidelines
 
@@ -261,4 +261,4 @@ npm run electron-dev -- --inspect=9229
 - [ ] Code follows established patterns
 - [ ] Tests are updated/added if needed
 
-Remember: TradeTrack prioritizes user privacy, offline functionality, and professional-grade features. All code should reflect these values.
+Remember: TradingBook prioritizes user privacy, offline functionality, and professional-grade features. All code should reflect these values.

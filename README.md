@@ -1,8 +1,14 @@
-# TradeTrack - Advanced Trading Journal
+# TradingBook - Advanced Trading Journal
 
-A comprehensive, open-source trading journal application built with Electron and React. TradeTrack provides all the features of premium trading journals like TradingVue, but completely free and with full data ownership.
+A comprehensive, open-source trading journal application built with Electron and React. TradingBook provides all the features of premium trading journals like TradingVue, but completely free and with full data ownership.
 
-## 🚀 Features
+## � Screenshot
+
+![TradingBook Interface](assets/tradingbook-screenshot.png)
+
+*TradingBook's clean and intuitive interface showing the dashboard with P&L calendar and trade analytics*
+
+## �🚀 Features
 
 ### Core Features
 - **📊 P&L Calendar**: Visual calendar showing daily profits/losses with color coding
@@ -37,8 +43,8 @@ A comprehensive, open-source trading journal application built with Electron and
 
 1. **Clone and Install**:
 ```bash
-git clone https://github.com/your-repo/trade-track
-cd trade-track
+git clone https://github.com/appatalks/TradingBook.git
+cd TradingBook
 npm install
 ```
 
@@ -54,8 +60,8 @@ npm run electron-dev
 
 4. **Run AppImage**:
 ```bash
-chmod +x dist/TradeTrack-*.AppImage
-./dist/TradeTrack-*.AppImage
+chmod +x dist/TradingBook-*.AppImage
+./dist/TradingBook-*.AppImage
 ```
 
 ## 💡 Usage
@@ -86,7 +92,7 @@ The application uses SQLite with the following main tables:
 - `tags`: Trade categorization
 - `settings`: User preferences
 
-Database location: `~/.config/TradeTrack/trades.db`
+Database location: `~/.config/TradingBook/trades.db`
 
 ## 🎨 Customization
 
@@ -103,7 +109,7 @@ Support for CSV, JSON, and Excel exports (Excel coming soon).
 
 ### Project Structure
 ```
-trade-track/
+TradingBook/
 ├── public/
 │   ├── electron.js      # Main Electron process
 │   ├── preload.js       # Secure IPC bridge
@@ -130,7 +136,7 @@ See `src/database/schema.sql` for the complete database structure.
 
 ## 📊 Comparison with TradingVue
 
-| Feature | TradeTrack | TradingVue |
+| Feature | TradingBook | TradingVue |
 |---------|------------|------------|
 | **Price** | Free | $49+/month |
 | **Data Ownership** | You own it | Cloud-hosted |
@@ -182,7 +188,7 @@ MIT License - see [LICENSE](LICENSE) for details.
 
 - **Issues**: Create a GitHub issue
 - **Discussions**: Use GitHub Discussions
-- **Security**: Email security@tradetrack.dev
+- **Security**: Email security@tradingbook.dev
 
 ## 🔒 Privacy & Security
 
@@ -191,9 +197,9 @@ MIT License - see [LICENSE](LICENSE) for details.
 - **No Network Requests**: No data sent to external servers
 - **Open Source**: Code is fully auditable
 
-## 🚀 Why TradeTrack?
+## 🚀 Why TradingBook?
 
-TradeTrack was created because trading journals shouldn't be subscription services. Your trading data is personal and valuable - you should own it completely. We believe in:
+TradingBook was created because trading journals shouldn't be subscription services. Your trading data is personal and valuable - you should own it completely. We believe in:
 
 - **Privacy First**: Your data, your machine
 - **No Vendor Lock-in**: Standard database, exportable data  

@@ -5,4 +5,4 @@
 # icon.ico (for Windows)
 
 # For now, we'll create a basic text placeholder
-echo "TradeTrack Icon Placeholder" > icon.png
+echo "TradingBook Icon Placeholder" > icon.png
