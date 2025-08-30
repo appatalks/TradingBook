@@ -13,9 +13,11 @@ const App: React.FC = () => {
   const [trades, setTrades] = useState<Trade[]>([]);
   const [darkMode, setDarkMode] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [settings, setSettings] = useState<any>(null);
 
   useEffect(() => {
     // Load initial data
+    loadSettings();
     loadTrades();
     
     // Set up electron listeners
@@ -25,6 +27,20 @@ const App: React.FC = () => {
       });
     }
   }, []);
+
+  const loadSettings = async () => {
+    try {
+      if (window.electronAPI) {
+        const savedSettings = await window.electronAPI.loadSettings();
+        setSettings(savedSettings);
+        if (savedSettings.darkMode !== undefined) {
+          setDarkMode(savedSettings.darkMode);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load settings:', error);
+    }
+  };
 
   const loadTrades = async () => {
     try {
@@ -81,6 +97,22 @@ const App: React.FC = () => {
     }
   };
 
+  const toggleDarkMode = async () => {
+    const newDarkMode = !darkMode;
+    setDarkMode(newDarkMode);
+    
+    // Save the dark mode setting
+    if (settings && window.electronAPI) {
+      try {
+        const updatedSettings = { ...settings, darkMode: newDarkMode };
+        await window.electronAPI.saveSettings(updatedSettings);
+        setSettings(updatedSettings);
+      } catch (error) {
+        console.error('Failed to save dark mode setting:', error);
+      }
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -99,10 +131,10 @@ const App: React.FC = () => {
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
               <Route path="/dashboard" element={<Dashboard trades={trades} />} />
               <Route path="/trades" element={<TradeList trades={trades} onUpdate={updateTrade} onDelete={deleteTrade} />} />
-              <Route path="/trades/new" element={<TradeForm onSubmit={handleTradeSubmit} />} />
-              <Route path="/trades/edit/:id" element={<TradeForm trades={trades} onSubmit={handleTradeSubmit} />} />
+              <Route path="/trades/new" element={<TradeForm onSubmit={handleTradeSubmit} settings={settings} />} />
+              <Route path="/trades/edit/:id" element={<TradeForm trades={trades} onSubmit={handleTradeSubmit} settings={settings} />} />
               <Route path="/analytics" element={<Analytics trades={trades} />} />
-              <Route path="/settings" element={<Settings darkMode={darkMode} onToggleDarkMode={() => setDarkMode(!darkMode)} />} />
+              <Route path="/settings" element={<Settings darkMode={darkMode} onToggleDarkMode={toggleDarkMode} />} />
             </Routes>
           </main>
         </Router>

@@ -21,8 +21,8 @@ export interface Trade {
 }
 
 export interface TradeFilter {
-  startDate?: Date;
-  endDate?: Date;
+  startDate?: Date | string;
+  endDate?: Date | string;
   symbol?: string;
   strategy?: string;
   assetType?: string;
@@ -83,6 +83,18 @@ declare global {
       // Analytics
       getPerformanceMetrics: (dateRange: { startDate?: Date; endDate?: Date }) => Promise<PerformanceMetrics>;
       getCalendarData: (month: number, year: number) => Promise<CalendarDay[]>;
+      
+      // Settings
+      saveSettings: (settings: any) => Promise<{ success: boolean }>;
+      loadSettings: () => Promise<any>;
+      
+      // Backup/Restore
+      backupDatabase: () => Promise<{ success: boolean; path?: string; error?: string }>;
+      restoreDatabase: () => Promise<{ success: boolean; path?: string; error?: string }>;
+      
+      // CSV Import/Export
+      exportCsv: () => Promise<{ success: boolean; path?: string; count?: number; error?: string }>;
+      importCsv: () => Promise<{ success: boolean; path?: string; imported?: number; errors?: number; errorDetails?: string[]; error?: string }>;
     };
   }
 }

@@ -17,8 +17,8 @@ const TradeList: React.FC<TradeListProps> = ({ trades, onUpdate, onDelete }) => 
   const filteredTrades = trades
     .filter(trade => 
       trade.symbol.toLowerCase().includes(filter.toLowerCase()) ||
-      trade.strategy?.toLowerCase().includes(filter.toLowerCase()) ||
-      trade.notes?.toLowerCase().includes(filter.toLowerCase())
+      trade.notes?.toLowerCase().includes(filter.toLowerCase()) ||
+      trade.strategy?.toLowerCase().includes(filter.toLowerCase())
     )
     .sort((a, b) => {
       let aValue, bValue;
@@ -138,7 +138,7 @@ const TradeList: React.FC<TradeListProps> = ({ trades, onUpdate, onDelete }) => 
                     Date
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Strategy
+                    Notes
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     Actions
@@ -171,15 +171,15 @@ const TradeList: React.FC<TradeListProps> = ({ trades, onUpdate, onDelete }) => 
                       {trade.quantity}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-gray-900 dark:text-white">
-                      ${trade.entryPrice.toFixed(2)}
+                      ${(trade.entryPrice ?? 0).toFixed(2)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-gray-900 dark:text-white">
-                      {trade.exitPrice ? `$${trade.exitPrice.toFixed(2)}` : '-'}
+                      {trade.exitPrice ? `$${(trade.exitPrice ?? 0).toFixed(2)}` : '-'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`font-semibold ${getPnLColor(trade.pnl)}`}>
                         {trade.pnl !== undefined 
-                          ? `${trade.pnl >= 0 ? '+' : ''}$${trade.pnl.toFixed(2)}`
+                          ? `${(trade.pnl ?? 0) >= 0 ? '+' : ''}$${(trade.pnl ?? 0).toFixed(2)}`
                           : '-'
                         }
                       </span>
@@ -187,12 +187,10 @@ const TradeList: React.FC<TradeListProps> = ({ trades, onUpdate, onDelete }) => 
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                       {formatDate(trade.entryDate)}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {trade.strategy && (
-                        <span className="text-xs bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400 px-2 py-1 rounded">
-                          {trade.strategy}
-                        </span>
-                      )}
+                    <td className="px-6 py-4 text-sm text-gray-900 dark:text-white max-w-xs">
+                      <div className="truncate" title={trade.notes || ''}>
+                        {trade.notes || '-'}
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
                       <button

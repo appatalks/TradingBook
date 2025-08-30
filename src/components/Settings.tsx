@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 interface SettingsProps {
   darkMode: boolean;
@@ -14,25 +14,160 @@ const Settings: React.FC<SettingsProps> = ({ darkMode, onToggleDarkMode }) => {
     autoCalculatePnL: true,
     exportFormat: 'CSV',
   });
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [showPurgeDialog, setShowPurgeDialog] = useState(false);
 
-  const handleSave = () => {
-    // Here you would typically save to electron store or send to main process
-    console.log('Saving settings:', settings);
-    alert('Settings saved successfully!');
-  };
+  useEffect(() => {
+    loadSettings();
+  }, []);
 
-  const handleExportData = () => {
-    // Trigger export functionality
-    if (window.electronAPI) {
-      // This would be handled by the main process
-      console.log('Exporting data...');
+  const loadSettings = async () => {
+    try {
+      if (window.electronAPI) {
+        const loadedSettings = await window.electronAPI.loadSettings();
+        setSettings(loadedSettings);
+      }
+    } catch (error) {
+      console.error('Failed to load settings:', error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const handleImportData = () => {
-    // Trigger import functionality
-    if (window.electronAPI) {
-      console.log('Importing data...');
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      if (window.electronAPI) {
+        const settingsToSave = { ...settings, darkMode };
+        await window.electronAPI.saveSettings(settingsToSave);
+        console.log('Settings saved successfully');
+        // Show a brief success message
+        const saveButton = document.querySelector('.save-settings-btn');
+        if (saveButton) {
+          const originalText = saveButton.textContent;
+          saveButton.textContent = 'Saved!';
+          saveButton.classList.add('bg-green-600');
+          saveButton.classList.remove('bg-blue-600');
+          setTimeout(() => {
+            saveButton.textContent = originalText;
+            saveButton.classList.remove('bg-green-600');
+            saveButton.classList.add('bg-blue-600');
+          }, 2000);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to save settings:', error);
+      alert('Failed to save settings. Please try again.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleExportData = async () => {
+    try {
+      if (window.electronAPI) {
+        const result = await window.electronAPI.exportCsv();
+        if (result.success) {
+          alert(`Data exported successfully!\n${result.count} trades exported to:\n${result.path}`);
+        } else {
+          if (result.error !== 'Export canceled') {
+            alert(`Export failed: ${result.error}`);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Failed to export data:', error);
+      alert('Failed to export data. Please try again.');
+    }
+  };
+
+  const handleImportData = async () => {
+    if (confirm('This will import trades from a CSV file. Duplicate trades may be created. Continue?')) {
+      try {
+        if (window.electronAPI) {
+          const result = await window.electronAPI.importCsv();
+          if (result.success) {
+            let message = `Import completed!\n${result.imported} trades imported successfully`;
+            if (result.errors && result.errors > 0) {
+              message += `\n${result.errors} errors occurred`;
+              if (result.errorDetails && result.errorDetails.length > 0) {
+                message += `\n\nFirst few errors:\n${result.errorDetails.slice(0, 3).join('\n')}`;
+              }
+            }
+            message += '\n\nRefresh the page to see imported trades.';
+            alert(message);
+          } else {
+            if (result.error !== 'Import canceled') {
+              alert(`Import failed: ${result.error}`);
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Failed to import data:', error);
+        alert('Failed to import data. Please try again.');
+      }
+    }
+  };
+
+  const handleBackupDatabase = async () => {
+    try {
+      if (window.electronAPI) {
+        const result = await window.electronAPI.backupDatabase();
+        if (result.success) {
+          alert(`Database backup created successfully!\nSaved to: ${result.path}`);
+        } else {
+          if (result.error !== 'Backup canceled') {
+            alert(`Backup failed: ${result.error}`);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Failed to backup database:', error);
+      alert('Failed to backup database. Please try again.');
+    }
+  };
+
+  const handleRestoreDatabase = async () => {
+    if (confirm('This will replace your current database with the backup. All current data will be lost. Are you sure you want to continue?')) {
+      try {
+        if (window.electronAPI) {
+          const result = await window.electronAPI.restoreDatabase();
+          if (result.success) {
+            alert(`Database restored successfully from: ${result.path}\n\nThe application will now restart to load the restored data.`);
+            // Optionally trigger app restart or reload
+            window.location.reload();
+          } else {
+            if (result.error !== 'Restore canceled') {
+              alert(`Restore failed: ${result.error}`);
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Failed to restore database:', error);
+        alert('Failed to restore database. Please try again.');
+      }
+    }
+  };
+
+  const handlePurgeDatabase = async () => {
+    try {
+      if (window.electronAPI) {
+        // @ts-ignore - purgeDatabase method is available in electronAPI
+        const result = await window.electronAPI.purgeDatabase();
+        if (result.success) {
+          alert('Database purged successfully! All trade data has been permanently deleted.\n\nThe application will now restart with an empty database.');
+          // Trigger app restart or reload
+          window.location.reload();
+        } else {
+          alert(`Purge failed: ${result.error}`);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to purge database:', error);
+      alert('Failed to purge database. Please try again.');
+    } finally {
+      setShowPurgeDialog(false);
     }
   };
 
@@ -40,11 +175,18 @@ const Settings: React.FC<SettingsProps> = ({ darkMode, onToggleDarkMode }) => {
     <div className="max-w-4xl mx-auto space-y-6">
       <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Settings</h1>
 
-      {/* General Settings */}
-      <div className="bg-white dark:bg-gray-800 shadow rounded-lg">
-        <div className="p-6">
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">General</h2>
-          <div className="space-y-4">
+      {isLoading ? (
+        <div className="flex justify-center items-center py-12">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+          <span className="ml-3 text-gray-600 dark:text-gray-400">Loading settings...</span>
+        </div>
+      ) : (
+        <>
+          {/* General Settings */}
+          <div className="bg-white dark:bg-gray-800 shadow rounded-lg">
+            <div className="p-6">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">General</h2>
+              <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div>
                 <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -225,20 +367,28 @@ const Settings: React.FC<SettingsProps> = ({ darkMode, onToggleDarkMode }) => {
               <span className="font-medium">Version:</span> 1.0.0
             </p>
             <p>
-              <span className="font-medium">Last Backup:</span> Never (manual backup recommended)
+              <span className="font-medium">Last Backup:</span> Manual backups available below
             </p>
           </div>
           
-          <div className="mt-4">
+          <div className="mt-4 flex space-x-3">
             <button
-              onClick={() => {
-                if (confirm('This will create a backup of your database. Continue?')) {
-                  alert('Backup feature will be implemented in a future update.');
-                }
-              }}
+              onClick={handleBackupDatabase}
+              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              Create Backup
+            </button>
+            <button
+              onClick={handleRestoreDatabase}
               className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500"
             >
-              Backup Database
+              Restore from Backup
+            </button>
+            <button
+              onClick={() => setShowPurgeDialog(true)}
+              className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
+            >
+              Purge Database
             </button>
           </div>
         </div>
@@ -248,9 +398,10 @@ const Settings: React.FC<SettingsProps> = ({ darkMode, onToggleDarkMode }) => {
       <div className="flex justify-end">
         <button
           onClick={handleSave}
-          className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          disabled={isSaving}
+          className="save-settings-btn px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
-          Save Settings
+          {isSaving ? 'Saving...' : 'Save Settings'}
         </button>
       </div>
 
@@ -276,6 +427,63 @@ const Settings: React.FC<SettingsProps> = ({ darkMode, onToggleDarkMode }) => {
           </div>
         </div>
       </div>
+
+      {/* Purge Database Warning Dialog */}
+      {showPurgeDialog && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4">
+            <div className="flex items-center mb-4">
+              <div className="flex-shrink-0">
+                <div className="w-10 h-10 bg-red-100 dark:bg-red-900 rounded-full flex items-center justify-center">
+                  <svg className="w-6 h-6 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                  </svg>
+                </div>
+              </div>
+              <div className="ml-4">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  Purge Database
+                </h3>
+              </div>
+            </div>
+            
+            <div className="mb-6">
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                <strong className="text-red-600 dark:text-red-400">WARNING:</strong> This action will permanently delete ALL trade data from your database.
+              </p>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                This includes:
+              </p>
+              <ul className="text-sm text-gray-600 dark:text-gray-400 ml-4 list-disc mb-3">
+                <li>All trade records</li>
+                <li>All profit/loss history</li>
+                <li>All analytics data</li>
+                <li>All notes and strategies</li>
+              </ul>
+              <p className="text-sm text-red-600 dark:text-red-400 font-medium">
+                This action cannot be undone. Make sure you have a backup if you want to preserve your data.
+              </p>
+            </div>
+            
+            <div className="flex space-x-3">
+              <button
+                onClick={() => setShowPurgeDialog(false)}
+                className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handlePurgeDatabase}
+                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
+              >
+                Yes, Purge Database
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+        </>
+      )}
     </div>
   );
 };

@@ -5,9 +5,10 @@ import { Trade } from '../types/Trade';
 interface TradeFormProps {
   trades?: Trade[];
   onSubmit: (trade: Omit<Trade, 'id'>, id?: number) => Promise<void>;
+  settings?: any;
 }
 
-const TradeForm: React.FC<TradeFormProps> = ({ trades = [], onSubmit }) => {
+const TradeForm: React.FC<TradeFormProps> = ({ trades = [], onSubmit, settings }) => {
   const navigate = useNavigate();
   const { id } = useParams();
   const isEdit = !!id;
@@ -21,7 +22,7 @@ const TradeForm: React.FC<TradeFormProps> = ({ trades = [], onSubmit }) => {
     exitPrice: '',
     entryDate: '',
     exitDate: '',
-    commission: '',
+    commission: settings?.defaultCommission || '0.00',
     strategy: '',
     notes: '',
     assetType: 'STOCK' as 'STOCK' | 'OPTION' | 'CRYPTO' | 'FOREX',
@@ -32,23 +33,41 @@ const TradeForm: React.FC<TradeFormProps> = ({ trades = [], onSubmit }) => {
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  // Update commission when settings change (for new trades only)
+  useEffect(() => {
+    if (!isEdit && settings?.defaultCommission) {
+      setFormData(prev => ({ ...prev, commission: settings.defaultCommission }));
+    }
+  }, [settings?.defaultCommission, isEdit]);
+
   useEffect(() => {
     if (existingTrade) {
+      // Ensure dates are properly converted
+      const entryDate = existingTrade.entryDate instanceof Date 
+        ? existingTrade.entryDate 
+        : new Date(existingTrade.entryDate);
+      const exitDate = existingTrade.exitDate 
+        ? (existingTrade.exitDate instanceof Date ? existingTrade.exitDate : new Date(existingTrade.exitDate))
+        : null;
+      const expirationDate = existingTrade.expirationDate 
+        ? (existingTrade.expirationDate instanceof Date ? existingTrade.expirationDate : new Date(existingTrade.expirationDate))
+        : null;
+        
       setFormData({
-        symbol: existingTrade.symbol,
-        side: existingTrade.side,
-        quantity: existingTrade.quantity.toString(),
-        entryPrice: existingTrade.entryPrice.toString(),
-        exitPrice: existingTrade.exitPrice?.toString() || '',
-        entryDate: existingTrade.entryDate.toISOString().slice(0, 16),
-        exitDate: existingTrade.exitDate?.toISOString().slice(0, 16) || '',
-        commission: existingTrade.commission.toString(),
+        symbol: existingTrade.symbol || '',
+        side: existingTrade.side || 'BUY',
+        quantity: (existingTrade.quantity ?? 0).toString(),
+        entryPrice: (existingTrade.entryPrice ?? 0).toString(),
+        exitPrice: (existingTrade.exitPrice ?? 0) !== 0 ? existingTrade.exitPrice?.toString() || '' : '',
+        entryDate: entryDate.toISOString().slice(0, 16),
+        exitDate: exitDate ? exitDate.toISOString().slice(0, 16) : '',
+        commission: (existingTrade.commission ?? 0).toString(),
         strategy: existingTrade.strategy || '',
         notes: existingTrade.notes || '',
-        assetType: existingTrade.assetType,
+        assetType: existingTrade.assetType || 'STOCK',
         optionType: existingTrade.optionType || '',
-        strikePrice: existingTrade.strikePrice?.toString() || '',
-        expirationDate: existingTrade.expirationDate?.toISOString().slice(0, 10) || ''
+        strikePrice: (existingTrade.strikePrice ?? 0) !== 0 ? existingTrade.strikePrice?.toString() || '' : '',
+        expirationDate: expirationDate ? expirationDate.toISOString().slice(0, 10) : ''
       });
     }
   }, [existingTrade]);
@@ -380,7 +399,7 @@ const TradeForm: React.FC<TradeFormProps> = ({ trades = [], onSubmit }) => {
               <div className={`text-lg font-semibold ${
                 (calculatePnL() || 0) >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
               }`}>
-                {(calculatePnL() || 0) >= 0 ? '+' : ''}${(calculatePnL() || 0).toFixed(2)}
+                {((calculatePnL() || 0) >= 0 ? '+' : '')}${((calculatePnL() || 0)).toFixed(2)}
               </div>
             </div>
           )}

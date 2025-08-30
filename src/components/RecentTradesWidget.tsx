@@ -53,16 +53,16 @@ const RecentTradesWidget: React.FC<RecentTradesWidgetProps> = ({ trades }) => {
             </div>
             {trade.pnl !== undefined && (
               <span className={`font-semibold ${getPnLColor(trade.pnl)}`}>
-                {trade.pnl >= 0 ? '+' : ''}${trade.pnl.toFixed(2)}
+                {(trade.pnl ?? 0) >= 0 ? '+' : ''}${(trade.pnl ?? 0).toFixed(2)}
               </span>
             )}
           </div>
           
           <div className="flex items-center justify-between text-sm text-gray-600 dark:text-gray-400">
             <div>
-              <span>{trade.quantity} @ ${trade.entryPrice.toFixed(2)}</span>
+              <span>{trade.quantity} @ ${(trade.entryPrice ?? 0).toFixed(2)}</span>
               {trade.exitPrice && (
-                <span> → ${trade.exitPrice.toFixed(2)}</span>
+                <span> → ${(trade.exitPrice ?? 0).toFixed(2)}</span>
               )}
             </div>
             <span>{formatDate(trade.entryDate)}</span>

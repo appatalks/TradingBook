@@ -14,5 +14,18 @@ contextBridge.exposeInMainWorld('electronAPI', {
   
   // Analytics
   getPerformanceMetrics: (dateRange) => ipcRenderer.invoke('get-performance-metrics', dateRange),
-  getCalendarData: (month, year) => ipcRenderer.invoke('get-calendar-data', month, year)
+  getCalendarData: (month, year) => ipcRenderer.invoke('get-calendar-data', month, year),
+  
+  // Settings
+  saveSettings: (settings) => ipcRenderer.invoke('save-settings', settings),
+  loadSettings: () => ipcRenderer.invoke('load-settings'),
+  
+  // Backup/Restore
+  backupDatabase: () => ipcRenderer.invoke('backup-database'),
+  restoreDatabase: () => ipcRenderer.invoke('restore-database'),
+  purgeDatabase: () => ipcRenderer.invoke('purge-database'),
+  
+  // CSV Import/Export
+  exportCsv: () => ipcRenderer.invoke('export-csv'),
+  importCsv: () => ipcRenderer.invoke('import-csv')
 });

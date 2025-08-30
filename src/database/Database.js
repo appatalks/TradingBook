@@ -6,15 +6,16 @@ const { app } = require('electron');
 class DatabaseManager {
   constructor() {
     this.db = null;
+    this.dbPath = null;
     this.init();
   }
 
   init() {
     const userDataPath = app.getPath('userData');
-    const dbPath = path.join(userDataPath, 'trades.db');
+    this.dbPath = path.join(userDataPath, 'trades.db');
     
     try {
-      this.db = new Database(dbPath);
+      this.db = new Database(this.dbPath);
       console.log('Connected to SQLite database');
       this.createTables();
     } catch (err) {
@@ -80,43 +81,75 @@ class DatabaseManager {
         let sql = 'SELECT * FROM trades WHERE 1=1';
         const params = [];
 
-        if (filters.startDate) {
-          sql += ' AND entry_date >= ?';
-          params.push(filters.startDate);
-        }
-        if (filters.endDate) {
-          sql += ' AND entry_date <= ?';
-          params.push(filters.endDate);
-        }
         if (filters.symbol) {
           sql += ' AND symbol LIKE ?';
           params.push(`%${filters.symbol}%`);
         }
+        
+        if (filters.startDate) {
+          sql += ' AND DATE(entry_date) >= DATE(?)';
+          const startParam = filters.startDate instanceof Date ? filters.startDate.toISOString() : filters.startDate;
+          params.push(startParam);
+        }
+        if (filters.endDate) {
+          sql += ' AND DATE(entry_date) <= DATE(?)';
+          const endParam = filters.endDate instanceof Date ? filters.endDate.toISOString() : filters.endDate;
+          params.push(endParam);
+        }
+        
         if (filters.strategy) {
           sql += ' AND strategy = ?';
           params.push(filters.strategy);
         }
+        
         if (filters.assetType) {
           sql += ' AND asset_type = ?';
           params.push(filters.assetType);
         }
+        
+        if (filters.minPnL !== undefined) {
+          sql += ' AND pnl >= ?';
+          params.push(filters.minPnL);
+        }
+        
+        if (filters.maxPnL !== undefined) {
+          sql += ' AND pnl <= ?';
+          params.push(filters.maxPnL);
+        }
 
         sql += ' ORDER BY entry_date DESC';
-
+        
         const stmt = this.db.prepare(sql);
         const rows = stmt.all(...params);
-        
-        const trades = rows.map(row => ({
-          ...row,
-          tags: JSON.parse(row.tags || '[]'),
-          screenshots: JSON.parse(row.screenshots || '[]'),
-          entryDate: new Date(row.entry_date),
-          exitDate: row.exit_date ? new Date(row.exit_date) : null,
-          expirationDate: row.expiration_date ? new Date(row.expiration_date) : null
-        }));
-        
+
+        const trades = rows.map(row => {
+          // Map snake_case database fields to camelCase JavaScript objects
+          const trade = {
+            id: row.id,
+            symbol: row.symbol,
+            side: row.side,
+            quantity: row.quantity,
+            entryPrice: row.entry_price,
+            exitPrice: row.exit_price,
+            entryDate: row.entry_date ? new Date(row.entry_date) : null,
+            exitDate: row.exit_date ? new Date(row.exit_date) : null,
+            pnl: row.pnl,
+            commission: row.commission,
+            strategy: row.strategy,
+            notes: row.notes,
+            tags: row.tags ? JSON.parse(row.tags) : [],
+            screenshots: row.screenshots ? JSON.parse(row.screenshots) : [],
+            assetType: row.asset_type,
+            optionType: row.option_type,
+            strikePrice: row.strike_price,
+            expirationDate: row.expiration_date ? new Date(row.expiration_date) : null
+          };
+          return trade;
+        });
+
         resolve(trades);
       } catch (err) {
+        console.error('Database query error:', err);
         reject(err);
       }
     });
@@ -166,6 +199,18 @@ class DatabaseManager {
       try {
         const stmt = this.db.prepare('DELETE FROM trades WHERE id = ?');
         const result = stmt.run(id);
+        resolve({ deleted: result.changes });
+      } catch (err) {
+        reject(err);
+      }
+    });
+  }
+
+  purgeAllTrades() {
+    return new Promise((resolve, reject) => {
+      try {
+        const stmt = this.db.prepare('DELETE FROM trades');
+        const result = stmt.run();
         resolve({ deleted: result.changes });
       } catch (err) {
         reject(err);
@@ -241,13 +286,12 @@ class DatabaseManager {
         const sql = `
           SELECT 
             DATE(entry_date) as date,
-            SUM(pnl) as daily_pnl,
+            SUM(CASE WHEN pnl IS NOT NULL THEN pnl ELSE 0 END) as daily_pnl,
             COUNT(*) as trade_count,
             SUM(CASE WHEN pnl > 0 THEN 1 ELSE 0 END) as wins
           FROM trades 
           WHERE strftime('%m', entry_date) = ? 
             AND strftime('%Y', entry_date) = ?
-            AND pnl IS NOT NULL
           GROUP BY DATE(entry_date)
           ORDER BY date
         `;
@@ -259,7 +303,8 @@ class DatabaseManager {
         );
         
         const calendarData = rows.map(row => ({
-          date: new Date(row.date),
+          // Use timezone-safe date parsing - append 'T00:00:00' to treat as local date
+          date: new Date(row.date + 'T00:00:00'),
           pnl: row.daily_pnl,
           tradeCount: row.trade_count,
           winRate: row.trade_count ? row.wins / row.trade_count : 0
@@ -270,6 +315,18 @@ class DatabaseManager {
         reject(err);
       }
     });
+  }
+
+  // Backup/restore utility methods
+  getDatabasePath() {
+    return this.dbPath;
+  }
+
+  checkpoint() {
+    // Force SQLite to write all pending changes to disk
+    if (this.db) {
+      this.db.exec('PRAGMA wal_checkpoint(FULL);');
+    }
   }
 
   close() {

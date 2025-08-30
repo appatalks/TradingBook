@@ -91,9 +91,44 @@ const Analytics: React.FC<AnalyticsProps> = ({ trades }) => {
       .sort((a, b) => b.pnl - a.pnl);
   };
 
+  const getDailyStats = () => {
+    if (!trades) return [];
+
+    const dailyMap = new Map();
+
+    trades.forEach(trade => {
+      const exitDate = trade.exitDate ? new Date(trade.exitDate).toDateString() : null;
+      if (!exitDate) return; // Skip open trades
+      
+      if (!dailyMap.has(exitDate)) {
+        dailyMap.set(exitDate, {
+          trades: 0,
+          wins: 0,
+          pnl: 0
+        });
+      }
+
+      const stats = dailyMap.get(exitDate)!;
+      stats.trades++;
+      if (trade.pnl && trade.pnl > 0) stats.wins++;
+      stats.pnl += trade.pnl || 0;
+    });
+
+    return Array.from(dailyMap.entries())
+      .map(([date, stats]) => ({
+        date,
+        trades: stats.trades,
+        pnl: stats.pnl,
+        winRate: stats.trades > 0 ? (stats.wins / stats.trades) * 100 : 0
+      }))
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      .slice(0, 10); // Show top 10 recent days
+  };
+
   const winLossStats = getWinLossStats();
   const symbolStats = getSymbolStats();
   const strategyStats = getStrategyStats();
+  const dailyStats = getDailyStats();
 
   if (!metrics) {
     return (
@@ -127,25 +162,25 @@ const Analytics: React.FC<AnalyticsProps> = ({ trades }) => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
           <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Total P&L</h3>
-          <p className={`text-2xl font-bold ${metrics.totalPnL >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-            {metrics.totalPnL >= 0 ? '+' : ''}${metrics.totalPnL.toFixed(2)}
+          <p className={`text-2xl font-bold ${(metrics.totalPnL ?? 0) >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+            {(metrics.totalPnL ?? 0) >= 0 ? '+' : ''}${(metrics.totalPnL ?? 0).toFixed(2)}
           </p>
         </div>
 
         <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
           <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Win Rate</h3>
-          <p className={`text-2xl font-bold ${metrics.winRate >= 0.5 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-            {(metrics.winRate * 100).toFixed(1)}%
+          <p className={`text-2xl font-bold ${(metrics.winRate ?? 0) >= 0.5 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+            {((metrics.winRate ?? 0) * 100).toFixed(1)}%
           </p>
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            {metrics.winningTrades}W / {metrics.losingTrades}L
+            {metrics.winningTrades ?? 0}W / {metrics.losingTrades ?? 0}L
           </p>
         </div>
 
         <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
           <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Profit Factor</h3>
-          <p className={`text-2xl font-bold ${metrics.profitFactor >= 1 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-            {metrics.profitFactor.toFixed(2)}
+          <p className={`text-2xl font-bold ${(metrics.profitFactor ?? 0) >= 1 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+            {(metrics.profitFactor ?? 0).toFixed(2)}
           </p>
         </div>
 
@@ -165,25 +200,25 @@ const Analytics: React.FC<AnalyticsProps> = ({ trades }) => {
             <div className="flex justify-between">
               <span className="text-gray-600 dark:text-gray-400">Average Win:</span>
               <span className="font-medium text-green-600 dark:text-green-400">
-                ${winLossStats.avgWin.toFixed(2)}
+                ${(winLossStats.avgWin ?? 0).toFixed(2)}
               </span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-600 dark:text-gray-400">Average Loss:</span>
               <span className="font-medium text-red-600 dark:text-red-400">
-                ${winLossStats.avgLoss.toFixed(2)}
+                ${(winLossStats.avgLoss ?? 0).toFixed(2)}
               </span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-600 dark:text-gray-400">Largest Win:</span>
               <span className="font-medium text-green-600 dark:text-green-400">
-                ${metrics.largestWin.toFixed(2)}
+                ${(metrics.largestWin ?? 0).toFixed(2)}
               </span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-600 dark:text-gray-400">Largest Loss:</span>
               <span className="font-medium text-red-600 dark:text-red-400">
-                ${metrics.largestLoss.toFixed(2)}
+                ${(metrics.largestLoss ?? 0).toFixed(2)}
               </span>
             </div>
           </div>
@@ -195,65 +230,109 @@ const Analytics: React.FC<AnalyticsProps> = ({ trades }) => {
             <div className="flex justify-between">
               <span className="text-gray-600 dark:text-gray-400">Sharpe Ratio:</span>
               <span className="font-medium text-gray-900 dark:text-white">
-                {metrics.sharpeRatio.toFixed(3)}
+                {(metrics.sharpeRatio ?? 0).toFixed(3)}
               </span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-600 dark:text-gray-400">Max Drawdown:</span>
               <span className="font-medium text-red-600 dark:text-red-400">
-                {metrics.maxDrawdown.toFixed(2)}%
+                {(metrics.maxDrawdown ?? 0).toFixed(2)}%
               </span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-600 dark:text-gray-400">Risk/Reward:</span>
               <span className="font-medium text-gray-900 dark:text-white">
-                {winLossStats.avgLoss !== 0 ? (Math.abs(winLossStats.avgWin / winLossStats.avgLoss)).toFixed(2) : 'N/A'}
+                {(winLossStats.avgLoss ?? 0) !== 0 ? (Math.abs((winLossStats.avgWin ?? 0) / (winLossStats.avgLoss ?? 0))).toFixed(2) : 'N/A'}
               </span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Top Symbols */}
-      {symbolStats.length > 0 && (
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
-          <div className="p-6">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Top Symbols by P&L</h3>
-            <div className="overflow-x-auto">
-              <table className="min-w-full">
-                <thead>
-                  <tr className="border-b border-gray-200 dark:border-gray-700">
-                    <th className="text-left py-2 text-sm font-medium text-gray-500 dark:text-gray-400">Symbol</th>
-                    <th className="text-right py-2 text-sm font-medium text-gray-500 dark:text-gray-400">Trades</th>
-                    <th className="text-right py-2 text-sm font-medium text-gray-500 dark:text-gray-400">P&L</th>
-                    <th className="text-right py-2 text-sm font-medium text-gray-500 dark:text-gray-400">Win Rate</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                  {symbolStats.map((stat) => (
-                    <tr key={stat.symbol}>
-                      <td className="py-3 text-sm font-medium text-gray-900 dark:text-white">
-                        {stat.symbol}
-                      </td>
-                      <td className="py-3 text-sm text-right text-gray-600 dark:text-gray-400">
-                        {stat.trades}
-                      </td>
-                      <td className={`py-3 text-sm text-right font-medium ${
-                        stat.pnl >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
-                      }`}>
-                        {stat.pnl >= 0 ? '+' : ''}${stat.pnl.toFixed(2)}
-                      </td>
-                      <td className="py-3 text-sm text-right text-gray-600 dark:text-gray-400">
-                        {stat.winRate.toFixed(1)}%
-                      </td>
+      {/* Side-by-side tables: Top Symbols and Daily Performance */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Top Symbols */}
+        {symbolStats.length > 0 && (
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
+            <div className="p-4">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Top Symbols by P&L</h3>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-gray-200 dark:border-gray-700">
+                      <th className="text-left py-2 px-2 text-sm font-medium text-gray-500 dark:text-gray-400">Symbol</th>
+                      <th className="text-right py-2 px-2 text-sm font-medium text-gray-500 dark:text-gray-400">Trades</th>
+                      <th className="text-right py-2 px-2 text-sm font-medium text-gray-500 dark:text-gray-400">P&L</th>
+                      <th className="text-right py-2 px-2 text-sm font-medium text-gray-500 dark:text-gray-400">Win Rate</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                    {symbolStats.map((stat) => (
+                      <tr key={stat.symbol}>
+                        <td className="py-2 px-2 text-sm font-medium text-gray-900 dark:text-white">
+                          {stat.symbol}
+                        </td>
+                        <td className="py-2 px-2 text-sm text-right text-gray-600 dark:text-gray-400">
+                          {stat.trades}
+                        </td>
+                        <td className={`py-2 px-2 text-sm text-right font-medium ${
+                          stat.pnl >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+                        }`}>
+                          {stat.pnl >= 0 ? '+' : ''}${stat.pnl.toFixed(2)}
+                        </td>
+                        <td className="py-2 px-2 text-sm text-right text-gray-600 dark:text-gray-400">
+                          {stat.winRate.toFixed(1)}%
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+
+        {/* Daily Win Rate */}
+        {dailyStats.length > 0 && (
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
+            <div className="p-4">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Daily Performance (Recent 10 Days)</h3>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-gray-200 dark:border-gray-700">
+                      <th className="text-left py-2 px-2 text-sm font-medium text-gray-500 dark:text-gray-400">Date</th>
+                      <th className="text-right py-2 px-2 text-sm font-medium text-gray-500 dark:text-gray-400">Trades</th>
+                      <th className="text-right py-2 px-2 text-sm font-medium text-gray-500 dark:text-gray-400">P&L</th>
+                      <th className="text-right py-2 px-2 text-sm font-medium text-gray-500 dark:text-gray-400">Win Rate</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                    {dailyStats.map((stat, index) => (
+                      <tr key={`${stat.date}-${index}`}>
+                        <td className="py-2 px-2 text-sm font-medium text-gray-900 dark:text-white">
+                          {new Date(stat.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                        </td>
+                        <td className="py-2 px-2 text-sm text-right text-gray-600 dark:text-gray-400">
+                          {stat.trades}
+                        </td>
+                        <td className={`py-2 px-2 text-sm text-right font-medium ${
+                          stat.pnl >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+                        }`}>
+                          {stat.pnl >= 0 ? '+' : ''}${stat.pnl.toFixed(2)}
+                        </td>
+                        <td className="py-2 px-2 text-sm text-right text-gray-600 dark:text-gray-400">
+                          {stat.winRate.toFixed(1)}%
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Strategy Performance */}
       {strategyStats.length > 0 && (
