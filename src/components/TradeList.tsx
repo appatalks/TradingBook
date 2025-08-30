@@ -1,18 +1,21 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Trade } from '../types/Trade';
+import CSVImport from './CSVImport';
 
 interface TradeListProps {
   trades: Trade[];
   onUpdate: (id: number, trade: Partial<Trade>) => Promise<void>;
   onDelete: (id: number) => Promise<void>;
+  onAddTrades?: (trades: Omit<Trade, 'id'>[]) => Promise<void>;
 }
 
-const TradeList: React.FC<TradeListProps> = ({ trades, onUpdate, onDelete }) => {
+const TradeList: React.FC<TradeListProps> = ({ trades, onUpdate, onDelete, onAddTrades }) => {
   const navigate = useNavigate();
   const [filter, setFilter] = useState('');
   const [sortBy, setSortBy] = useState<'entryDate' | 'symbol' | 'pnl'>('entryDate');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [showImport, setShowImport] = useState(false);
 
   const filteredTrades = trades
     .filter(trade => 
@@ -65,11 +68,17 @@ const TradeList: React.FC<TradeListProps> = ({ trades, onUpdate, onDelete }) => 
     }
   };
 
+  const handleImportTrades = async (importedTrades: Omit<Trade, 'id'>[]) => {
+    if (onAddTrades) {
+      await onAddTrades(importedTrades);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Trades</h1>
-        <div className="flex space-x-4">
+        <div className="flex space-x-4 items-center">
           <input
             type="text"
             placeholder="Search trades..."
@@ -93,6 +102,23 @@ const TradeList: React.FC<TradeListProps> = ({ trades, onUpdate, onDelete }) => 
             <option value="pnl-desc">P&L (Highest)</option>
             <option value="pnl-asc">P&L (Lowest)</option>
           </select>
+          <button
+            onClick={() => navigate('/trades/new')}
+            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+          >
+            Add Trade
+          </button>
+          {onAddTrades && (
+            <button
+              onClick={() => setShowImport(true)}
+              className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors flex items-center gap-2"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
+              </svg>
+              Import CSV
+            </button>
+          )}
         </div>
       </div>
 
@@ -212,6 +238,14 @@ const TradeList: React.FC<TradeListProps> = ({ trades, onUpdate, onDelete }) => 
             </table>
           </div>
         </div>
+      )}
+
+      {/* CSV Import Modal */}
+      {showImport && (
+        <CSVImport
+          onImport={handleImportTrades}
+          onClose={() => setShowImport(false)}
+        />
       )}
     </div>
   );

@@ -27,5 +27,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   
   // CSV Import/Export
   exportCsv: () => ipcRenderer.invoke('export-csv'),
-  importCsv: () => ipcRenderer.invoke('import-csv')
+  importCsv: () => ipcRenderer.invoke('import-csv'),
+  
+  // P&L Matching
+  matchPnL: () => ipcRenderer.invoke('match-pnl'),
+  
+  // Yahoo Finance API
+  fetchStockData: (symbol) => ipcRenderer.invoke('fetch-stock-data', symbol)
 });

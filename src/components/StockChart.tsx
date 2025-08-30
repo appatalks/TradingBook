@@ -76,67 +76,19 @@ const StockChart: React.FC<StockChartProps> = ({ symbol, trades, onClose }) => {
       setLoading(true);
       setError(null);
       
-      // Yahoo Finance API (same as ticker.sh) - No API key required!
-      const YAHOO_API_ENDPOINT = 'https://query1.finance.yahoo.com/v8/finance/chart/';
-      const YAHOO_API_SUFFIX = '?interval=1d&range=3mo'; // 3 months of data
-      
-      // Preflight request to get cookies (mimicking ticker.sh)
-      try {
-        await fetch('https://finance.yahoo.com', {
-          method: 'GET',
-          mode: 'no-cors',
-          headers: {
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
-            'User-Agent': 'Chrome/115.0.0.0 Safari/537.36'
-          }
-        });
-      } catch {
-        // Ignore preflight errors
-      }
-      
-      const yahooUrl = `${YAHOO_API_ENDPOINT}${symbol}${YAHOO_API_SUFFIX}`;
-      const response = await fetch(yahooUrl, {
-        headers: {
-          'User-Agent': 'Chrome/115.0.0.0 Safari/537.36'
+      // Use Electron IPC to fetch data from main process (avoids CORS issues)
+      if (window.electronAPI && window.electronAPI.fetchStockData) {
+        const result = await window.electronAPI.fetchStockData(symbol);
+        
+        if (result.success && result.data) {
+          setStockData(result.data);
+        } else {
+          throw new Error(result.error || 'Failed to load stock data');
         }
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Yahoo Finance API error: ${response.status}`);
+      } else {
+        // Fallback for development or if electronAPI is not available
+        throw new Error('Stock data API not available');
       }
-      
-      const data = await response.json();
-      
-      if (data.chart?.error || !data.chart?.result?.[0]) {
-        throw new Error('Invalid symbol or no data available');
-      }
-      
-      const result = data.chart.result[0];
-      const timestamps = result.timestamp;
-      const quotes = result.indicators?.quote?.[0];
-      
-      if (!timestamps || !quotes) {
-        throw new Error('No price data available');
-      }
-      
-      // Convert Yahoo Finance data to our format
-      const chartData: StockDataPoint[] = timestamps.map((timestamp: number, index: number) => {
-        const date = new Date(timestamp * 1000);
-        return {
-          date: date.toISOString().split('T')[0],
-          open: quotes.open?.[index] || 0,
-          high: quotes.high?.[index] || 0,
-          low: quotes.low?.[index] || 0,
-          close: quotes.close?.[index] || 0,
-          volume: quotes.volume?.[index] || 0
-        };
-      }).filter((point: StockDataPoint) => point.close > 0); // Filter out invalid data points
-      
-      if (chartData.length === 0) {
-        throw new Error('No valid price data found');
-      }
-      
-      setStockData(chartData);
     } catch (err) {
       console.error('Error fetching stock data:', err);
       setError(err instanceof Error ? err.message : 'Failed to load stock data');

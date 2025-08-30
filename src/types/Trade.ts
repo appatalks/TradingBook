@@ -95,6 +95,12 @@ declare global {
       // CSV Import/Export
       exportCsv: () => Promise<{ success: boolean; path?: string; count?: number; error?: string }>;
       importCsv: () => Promise<{ success: boolean; path?: string; imported?: number; errors?: number; errorDetails?: string[]; error?: string }>;
+      
+      // P&L Matching
+      matchPnL: () => Promise<{ success: boolean; message?: string; error?: string }>;
+      
+      // Yahoo Finance API
+      fetchStockData: (symbol: string) => Promise<{ success: boolean; data?: any[]; error?: string }>;
     };
   }
 }

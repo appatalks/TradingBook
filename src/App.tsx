@@ -67,6 +67,25 @@ const App: React.FC = () => {
     }
   };
 
+  const addBulkTrades = async (newTrades: Omit<Trade, 'id'>[]) => {
+    try {
+      if (window.electronAPI && newTrades.length > 0) {
+        const savedTrades: Trade[] = [];
+        
+        // Add trades sequentially to maintain database consistency
+        for (const trade of newTrades) {
+          const savedTrade = await window.electronAPI.saveTrade(trade);
+          savedTrades.push(savedTrade);
+        }
+        
+        setTrades(prev => [...prev, ...savedTrades]);
+      }
+    } catch (error) {
+      console.error('Failed to add bulk trades:', error);
+      throw error;
+    }
+  };
+
   const updateTrade = async (id: number, trade: Partial<Trade>) => {
     try {
       if (window.electronAPI) {
@@ -130,7 +149,7 @@ const App: React.FC = () => {
             <Routes>
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
               <Route path="/dashboard" element={<Dashboard trades={trades} />} />
-              <Route path="/trades" element={<TradeList trades={trades} onUpdate={updateTrade} onDelete={deleteTrade} />} />
+              <Route path="/trades" element={<TradeList trades={trades} onUpdate={updateTrade} onDelete={deleteTrade} onAddTrades={addBulkTrades} />} />
               <Route path="/trades/new" element={<TradeForm onSubmit={handleTradeSubmit} settings={settings} />} />
               <Route path="/trades/edit/:id" element={<TradeForm trades={trades} onSubmit={handleTradeSubmit} settings={settings} />} />
               <Route path="/analytics" element={<Analytics trades={trades} />} />

@@ -32,15 +32,15 @@ function createWindow() {
   const primaryDisplay = screen.getPrimaryDisplay();
   const { width: screenWidth, height: screenHeight } = primaryDisplay.workAreaSize;
   
-  // Calculate optimal window size (70% of screen size, with reasonable minimums)
-  const windowWidth = Math.max(1200, Math.min(screenWidth * 0.7, 1400));
-  const windowHeight = Math.max(800, Math.min(screenHeight * 0.7, 900));
+  // Calculate optimal window size (75% of screen size, with reasonable minimums)
+  const windowWidth = Math.max(1300, Math.min(screenWidth * 0.75, 1500));
+  const windowHeight = Math.max(900, Math.min(screenHeight * 0.75, 1000));
   
   mainWindow = new BrowserWindow({
     width: windowWidth,
     height: windowHeight,
-    minWidth: 1100,
-    minHeight: 700,
+    minWidth: 1200,
+    minHeight: 750,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -191,8 +191,23 @@ function initDatabase() {
   try {
     db = new DatabaseManager();
     console.log('Database initialized successfully');
+    
+    // Automatically run P&L matching on startup
+    setTimeout(() => {
+      performPnLMatching();
+    }, 2000); // Give the app 2 seconds to fully load
   } catch (error) {
     console.error('Failed to initialize database:', error);
+  }
+}
+
+async function performPnLMatching() {
+  try {
+    console.log('Auto P&L matching triggered on startup...');
+    const result = await matchAndCalculatePnL();
+    console.log('Auto P&L matching completed successfully');
+  } catch (error) {
+    console.error('Auto P&L matching failed:', error);
   }
 }
 
@@ -432,6 +447,181 @@ ipcMain.handle('export-csv', async (event) => {
   }
 });
 
+// Function to match buy/sell pairs and calculate P&L
+async function matchAndCalculatePnL() {
+  try {
+    // Get all trades from the database using the DatabaseManager's getTrades method
+    const trades = await db.getTrades();
+    console.log(`Found ${trades.length} trades to process for P&L matching`);
+
+    if (trades.length === 0) {
+      console.log('No trades found to match');
+      return;
+    }
+
+    // Group trades by symbol
+    const tradesBySymbol = {};
+    trades.forEach(trade => {
+      const symbol = trade.symbol;
+      if (!tradesBySymbol[symbol]) {
+        tradesBySymbol[symbol] = { buys: [], sells: [] };
+      }
+      
+      if (trade.side === 'BUY') {
+        tradesBySymbol[symbol].buys.push({
+          ...trade,
+          remainingQuantity: trade.quantity
+        });
+      } else if (trade.side === 'SELL') {
+        tradesBySymbol[symbol].sells.push({
+          ...trade,
+          remainingQuantity: trade.quantity
+        });
+      }
+    });
+
+    console.log(`Processing ${Object.keys(tradesBySymbol).length} symbols for matching`);
+
+    // Process each symbol to match buy/sell pairs
+    for (const symbol in tradesBySymbol) {
+      const { buys, sells } = tradesBySymbol[symbol];
+      console.log(`Processing ${symbol}: ${buys.length} buys, ${sells.length} sells`);
+      
+      if (buys.length === 0 || sells.length === 0) {
+        console.log(`Skipping ${symbol} - no matching pairs possible`);
+        continue;
+      }
+      
+      // Sort by date for FIFO matching
+      buys.sort((a, b) => new Date(a.entryDate) - new Date(b.entryDate));
+      sells.sort((a, b) => new Date(a.entryDate) - new Date(b.entryDate));
+
+      let buyIndex = 0;
+      let sellIndex = 0;
+
+      while (buyIndex < buys.length && sellIndex < sells.length) {
+        const buy = buys[buyIndex];
+        const sell = sells[sellIndex];
+
+        if (buy.remainingQuantity <= 0) {
+          buyIndex++;
+          continue;
+        }
+
+        if (sell.remainingQuantity <= 0) {
+          sellIndex++;
+          continue;
+        }
+
+        // Match quantities using FIFO
+        const matchedQuantity = Math.min(buy.remainingQuantity, sell.remainingQuantity);
+        
+        if (matchedQuantity > 0) {
+          // Calculate P&L
+          const entryPrice = buy.entryPrice;
+          const exitPrice = sell.entryPrice; // Sell price becomes exit price
+          const pnl = (exitPrice - entryPrice) * matchedQuantity - (buy.commission || 0) - (sell.commission || 0);
+
+          console.log(`Matching ${symbol}: ${matchedQuantity} shares @ ${entryPrice} -> ${exitPrice}, P&L: ${pnl.toFixed(2)}`);
+
+          // Create a new complete trade with P&L
+          const completeTrade = {
+            symbol: buy.symbol,
+            side: 'BUY', // Keep as BUY to maintain the trade direction
+            quantity: matchedQuantity,
+            entryPrice: entryPrice,
+            exitPrice: exitPrice,
+            entryDate: buy.entryDate,
+            exitDate: sell.entryDate,
+            pnl: pnl,
+            commission: (buy.commission || 0) + (sell.commission || 0),
+            strategy: buy.strategy || 'Imported',
+            notes: `Matched trade: Buy ${buy.id} + Sell ${sell.id}`,
+            tags: buy.tags || '',
+            screenshots: buy.screenshots || '',
+            assetType: buy.assetType || 'STOCK',
+            optionType: buy.optionType,
+            strikePrice: buy.strikePrice,
+            expirationDate: buy.expirationDate
+          };
+
+          // Save the complete trade
+          await db.saveTrade(completeTrade);
+          console.log(`Created complete trade for ${matchedQuantity} shares of ${symbol} with P&L: $${pnl.toFixed(2)}`);
+
+          // Delete the original buy and sell trades
+          await db.deleteTrade(buy.id);
+          await db.deleteTrade(sell.id);
+          console.log(`Deleted original buy trade ${buy.id} and sell trade ${sell.id}`);
+
+          // Handle partial fills
+          if (buy.remainingQuantity > matchedQuantity) {
+            // Create a new buy trade for the remainder
+            const remainderQty = buy.remainingQuantity - matchedQuantity;
+            const remainderTrade = {
+              symbol: buy.symbol,
+              side: 'BUY',
+              quantity: remainderQty,
+              entryPrice: buy.entryPrice,
+              exitPrice: null,
+              entryDate: buy.entryDate,
+              exitDate: null,
+              pnl: null,
+              commission: 0, // Commission already accounted for in the matched trade
+              strategy: buy.strategy,
+              notes: (buy.notes || '') + ' (Remainder after partial match)',
+              tags: buy.tags || '',
+              screenshots: buy.screenshots || '',
+              assetType: buy.assetType || 'STOCK',
+              optionType: buy.optionType,
+              strikePrice: buy.strikePrice,
+              expirationDate: buy.expirationDate
+            };
+            
+            await db.saveTrade(remainderTrade);
+            console.log(`Created remainder buy trade for ${remainderQty} shares of ${symbol}`);
+          }
+
+          if (sell.remainingQuantity > matchedQuantity) {
+            // Create a new sell trade for the remainder
+            const remainderQty = sell.remainingQuantity - matchedQuantity;
+            const remainderTrade = {
+              symbol: sell.symbol,
+              side: 'SELL',
+              quantity: remainderQty,
+              entryPrice: sell.entryPrice,
+              exitPrice: null,
+              entryDate: sell.entryDate,
+              exitDate: null,
+              pnl: null,
+              commission: 0,
+              strategy: sell.strategy,
+              notes: (sell.notes || '') + ' (Remainder after partial match)',
+              tags: sell.tags || '',
+              screenshots: sell.screenshots || '',
+              assetType: sell.assetType || 'STOCK',
+              optionType: sell.optionType,
+              strikePrice: sell.strikePrice,
+              expirationDate: sell.expirationDate
+            };
+            
+            await db.saveTrade(remainderTrade);
+            console.log(`Created remainder sell trade for ${remainderQty} shares of ${symbol}`);
+          }
+
+          // Update remaining quantities
+          buy.remainingQuantity -= matchedQuantity;
+          sell.remainingQuantity -= matchedQuantity;
+        }
+      }
+    }
+
+    console.log('P&L matching completed successfully');
+  } catch (error) {
+    console.error('Error in matchAndCalculatePnL:', error);
+  }
+}
+
 ipcMain.handle('import-csv', async (event) => {
   try {
     const result = await dialog.showOpenDialog(mainWindow, {
@@ -458,41 +648,132 @@ ipcMain.handle('import-csv', async (event) => {
       
       for (let i = 0; i < dataLines.length; i++) {
         try {
-          const values = dataLines[i].split(',');
+          const line = dataLines[i].trim();
           
-          // Skip if not enough columns
-          if (values.length < 4) continue;
+          // Enhanced CSV parsing for properly quoted fields with embedded commas
+          let values = [];
+          let current = '';
+          let inQuotes = false;
           
-          // Parse trade data (skipping ID column)
-          const trade = {
-            symbol: values[1]?.trim() || '',
-            side: values[2]?.trim() || 'BUY',
-            quantity: parseFloat(values[3]) || 0,
-            entryPrice: parseFloat(values[4]) || 0,
-            exitPrice: values[5] ? parseFloat(values[5]) : null,
-            entryDate: values[6]?.trim() || new Date().toISOString(),
-            exitDate: values[7]?.trim() || null,
-            pnl: values[8] ? parseFloat(values[8]) : null,
-            commission: values[9] ? parseFloat(values[9]) : 0,
-            strategy: values[10]?.trim() || '',
-            notes: values[11]?.trim().replace(/^"(.*)"$/, '$1').replace(/""/g, '"') || '', // Unescape quotes
-            tags: values[12]?.trim() || '',
-            assetType: values[13]?.trim() || 'STOCK',
-            optionType: values[14]?.trim() || null,
-            strikePrice: values[15] ? parseFloat(values[15]) : null,
-            expirationDate: values[16]?.trim() || null
-          };
-          
-          // Validate required fields
-          if (!trade.symbol || trade.quantity <= 0 || trade.entryPrice <= 0) {
-            errors.push(`Line ${i + 2}: Invalid required fields`);
-            errorCount++;
-            continue;
+          for (let j = 0; j < line.length; j++) {
+            const char = line[j];
+            const nextChar = j + 1 < line.length ? line[j + 1] : '';
+            
+            if (char === '"' && nextChar === '"') {
+              // Handle escaped quotes ("")
+              current += '"';
+              j++; // Skip next character
+            } else if (char === '"') {
+              // Toggle quote state
+              inQuotes = !inQuotes;
+            } else if (char === ',' && !inQuotes) {
+              // Field separator outside quotes
+              values.push(current.trim());
+              current = '';
+            } else {
+              current += char;
+            }
           }
+          values.push(current.trim()); // Add the last field
           
-          // Save trade
-          await db.saveTrade(trade);
-          importedCount++;
+          console.log(`Debug line ${i + 2}: parsed ${values.length} fields:`, values.map(v => `"${v}"`));
+          
+          // Check if this looks like a Schwab CSV format
+          if (values.length >= 8 && values[0] && values[1] && values[2] && values[4] && values[5]) {
+            // Schwab format: Date, Action, Symbol, Description, Quantity, Price, Fees & Comm, Amount
+            const action = values[1].trim();
+            const symbol = values[2].trim();
+            
+            // Skip non-trading actions
+            if (!action || !['Buy', 'Sell'].includes(action)) {
+              console.log(`Skipping non-trading action: ${action}`);
+              continue;
+            }
+            
+            if (!symbol) {
+              console.log(`Skipping empty symbol`);
+              continue;
+            }
+            
+            const quantity = Math.abs(parseFloat(values[4].replace(/[,$"]/g, '')) || 0);
+            const price = parseFloat(values[5].replace(/[$,"]/g, '') || '0');
+            const commission = Math.abs(parseFloat(values[6].replace(/[$,"]/g, '') || '0'));
+            
+            // Parse Schwab date format MM/DD/YYYY
+            let entryDate = new Date().toISOString();
+            if (values[0] && values[0].includes('/')) {
+              const dateParts = values[0].split('/');
+              if (dateParts.length === 3) {
+                const [month, day, year] = dateParts.map(p => parseInt(p, 10));
+                if (month >= 1 && month <= 12 && day >= 1 && day <= 31 && year >= 1900) {
+                  entryDate = new Date(year, month - 1, day).toISOString();
+                }
+              }
+            }
+            
+            const trade = {
+              symbol: symbol.toUpperCase(),
+              side: action.toUpperCase(),
+              quantity: quantity,
+              entryPrice: price,
+              exitPrice: null,
+              entryDate: entryDate,
+              exitDate: null,
+              pnl: null,
+              commission: commission,
+              strategy: '',
+              notes: `Imported from Schwab CSV - ${values[3] || ''}`.trim(),
+              tags: '',
+              assetType: 'STOCK',
+              optionType: null,
+              strikePrice: null,
+              expirationDate: null
+            };
+            
+            // Validate required fields
+            if (!trade.symbol || trade.quantity <= 0 || trade.entryPrice <= 0) {
+              errors.push(`Line ${i + 2}: Invalid required fields - Symbol: ${trade.symbol}, Quantity: ${trade.quantity}, Price: ${trade.entryPrice}`);
+              errorCount++;
+              continue;
+            }
+            
+            // Save trade
+            await db.saveTrade(trade);
+            importedCount++;
+            console.log(`Successfully imported: ${trade.symbol} ${trade.side} ${trade.quantity} @ ${trade.entryPrice}`);
+            
+          } else {
+            // Original format for backward compatibility  
+            const trade = {
+              symbol: values[1]?.trim() || '',
+              side: values[2]?.trim() || 'BUY',
+              quantity: parseFloat(values[3]) || 0,
+              entryPrice: parseFloat(values[4]) || 0,
+              exitPrice: values[5] ? parseFloat(values[5]) : null,
+              entryDate: values[6]?.trim() || new Date().toISOString(),
+              exitDate: values[7]?.trim() || null,
+              pnl: values[8] ? parseFloat(values[8]) : null,
+              commission: values[9] ? parseFloat(values[9]) : 0,
+              strategy: values[10]?.trim() || '',
+              notes: values[11]?.trim().replace(/^"(.*)"$/, '$1').replace(/""/g, '"') || '',
+              tags: values[12]?.trim() || '',
+              assetType: values[13]?.trim() || 'STOCK',
+              optionType: values[14]?.trim() || null,
+              strikePrice: values[15] ? parseFloat(values[15]) : null,
+              expirationDate: values[16]?.trim() || null
+            };
+            
+            // Validate required fields
+            if (!trade.symbol || trade.quantity <= 0 || trade.entryPrice <= 0) {
+              errors.push(`Line ${i + 2}: Invalid required fields`);
+              errorCount++;
+              continue;
+            }
+            
+            // Save trade
+            await db.saveTrade(trade);
+            importedCount++;
+          }
           
         } catch (lineError) {
           errors.push(`Line ${i + 2}: ${lineError.message}`);
@@ -501,6 +782,11 @@ ipcMain.handle('import-csv', async (event) => {
       }
       
       console.log(`CSV import completed: ${importedCount} imported, ${errorCount} errors`);
+      
+      // Now process the imported trades to match buy/sell pairs and calculate P&L
+      console.log('Starting to match buy/sell pairs for P&L calculation...');
+      await matchAndCalculatePnL();
+      
       return { 
         success: true, 
         path: csvPath, 
@@ -513,6 +799,92 @@ ipcMain.handle('import-csv', async (event) => {
     return { success: false, error: 'Import canceled' };
   } catch (error) {
     console.error('Failed to import CSV:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Add IPC handler for manual P&L matching
+ipcMain.handle('match-pnl', async (event) => {
+  try {
+    console.log('Manual P&L matching triggered...');
+    await matchAndCalculatePnL();
+    return { success: true, message: 'P&L matching completed successfully' };
+  } catch (error) {
+    console.error('Failed to match P&L:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Add IPC handler for Yahoo Finance API to avoid CORS issues
+ipcMain.handle('fetch-stock-data', async (event, symbol) => {
+  try {
+    console.log(`Fetching stock data for ${symbol}...`);
+    
+    const https = require('https');
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=3mo`;
+    
+    const response = await new Promise((resolve, reject) => {
+      const req = https.get(url, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36'
+        }
+      }, (res) => {
+        let data = '';
+        res.on('data', chunk => data += chunk);
+        res.on('end', () => {
+          try {
+            const jsonData = JSON.parse(data);
+            resolve(jsonData);
+          } catch (parseError) {
+            reject(new Error('Failed to parse Yahoo Finance response'));
+          }
+        });
+      });
+      
+      req.on('error', (error) => {
+        reject(new Error(`Network error: ${error.message}`));
+      });
+      
+      req.setTimeout(10000, () => {
+        req.destroy();
+        reject(new Error('Request timeout'));
+      });
+    });
+    
+    if (response.chart?.error || !response.chart?.result?.[0]) {
+      throw new Error('Invalid symbol or no data available from Yahoo Finance');
+    }
+    
+    const result = response.chart.result[0];
+    const timestamps = result.timestamp;
+    const quotes = result.indicators?.quote?.[0];
+    
+    if (!timestamps || !quotes) {
+      throw new Error('No price data available from Yahoo Finance');
+    }
+    
+    // Convert Yahoo Finance data to our format
+    const chartData = timestamps.map((timestamp, index) => {
+      const date = new Date(timestamp * 1000);
+      return {
+        date: date.toISOString().split('T')[0],
+        open: quotes.open?.[index] || 0,
+        high: quotes.high?.[index] || 0,
+        low: quotes.low?.[index] || 0,
+        close: quotes.close?.[index] || 0,
+        volume: quotes.volume?.[index] || 0
+      };
+    }).filter(point => point.close > 0); // Filter out invalid data points
+    
+    if (chartData.length === 0) {
+      throw new Error('No valid price data found');
+    }
+    
+    console.log(`Successfully fetched ${chartData.length} data points for ${symbol}`);
+    return { success: true, data: chartData };
+    
+  } catch (error) {
+    console.error(`Failed to fetch stock data for ${symbol}:`, error.message);
     return { success: false, error: error.message };
   }
 });

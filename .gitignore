@@ -22,6 +22,9 @@ app/dist/
 .env.test.local
 .env.production.local
 
+# CSV data files
+*.csv
+
 # IDE and Editor files
 .vscode/
 .idea/

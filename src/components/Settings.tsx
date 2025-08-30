@@ -150,6 +150,25 @@ const Settings: React.FC<SettingsProps> = ({ darkMode, onToggleDarkMode }) => {
     }
   };
 
+  const handleMatchPnL = async () => {
+    if (confirm('This will analyze your trades and match buy/sell pairs to calculate P&L. This may take a few moments. Continue?')) {
+      try {
+        if (window.electronAPI) {
+          // @ts-ignore - matchPnL method is available in electronAPI
+          const result = await window.electronAPI.matchPnL();
+          if (result.success) {
+            alert(`P&L matching completed successfully!\n\nRefresh the page to see updated analytics.`);
+          } else {
+            alert(`P&L matching failed: ${result.error}`);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to match P&L:', error);
+        alert('Failed to match P&L. Please try again.');
+      }
+    }
+  };
+
   const handlePurgeDatabase = async () => {
     try {
       if (window.electronAPI) {
@@ -349,6 +368,12 @@ const Settings: React.FC<SettingsProps> = ({ darkMode, onToggleDarkMode }) => {
                 className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500"
               >
                 Import Data
+              </button>
+              <button
+                onClick={handleMatchPnL}
+                className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500"
+              >
+                Match P&L
               </button>
             </div>
           </div>
