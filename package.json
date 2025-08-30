@@ -1,9 +1,34 @@
 {
   "name": "tradingbook",
   "version": "1.0.0",
-  "description": "The Traders Journal - Advanced trading journal application",
+  "description": "TradeTrack - Advanced trading journal application with privacy-focused offline functionality",
   "main": "public/electron.js",
   "homepage": "./",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/appatalks/TradingBook.git"
+  },
+  "bugs": {
+    "url": "https://github.com/appatalks/TradingBook/issues"
+  },
+  "author": "appatalks",
+  "license": "MIT",
+  "keywords": [
+    "trading",
+    "journal",
+    "electron",
+    "react",
+    "typescript",
+    "sqlite",
+    "privacy",
+    "offline",
+    "portfolio",
+    "analytics",
+    "stocks",
+    "crypto",
+    "forex",
+    "options"
+  ],
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
@@ -61,15 +86,6 @@
       "category": "Office"
     }
   },
-  "keywords": [
-    "trading",
-    "journal",
-    "stocks",
-    "finance",
-    "electron"
-  ],
-  "author": "The Traders Journal",
-  "license": "MIT",
   "browserslist": {
     "production": [
       ">0.2%",
