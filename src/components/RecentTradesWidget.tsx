@@ -3,9 +3,10 @@ import { Trade } from '../types/Trade';
 
 interface RecentTradesWidgetProps {
   trades: Trade[];
+  onSymbolClick?: (symbol: string) => void;
 }
 
-const RecentTradesWidget: React.FC<RecentTradesWidgetProps> = ({ trades }) => {
+const RecentTradesWidget: React.FC<RecentTradesWidgetProps> = ({ trades, onSymbolClick }) => {
   const formatDate = (date: Date) => {
     return date.toLocaleDateString('en-US', {
       month: 'short',
@@ -37,7 +38,13 @@ const RecentTradesWidget: React.FC<RecentTradesWidgetProps> = ({ trades }) => {
         <div key={trade.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-3 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center space-x-2">
-              <span className="font-medium text-gray-900 dark:text-white">
+              <span 
+                className={`font-medium cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 ${
+                  onSymbolClick ? 'text-blue-600 dark:text-blue-400' : 'text-gray-900 dark:text-white'
+                }`}
+                onClick={() => onSymbolClick?.(trade.symbol)}
+                title={onSymbolClick ? "Click to view stock chart" : undefined}
+              >
                 {trade.symbol}
               </span>
               <span className={`px-2 py-1 text-xs rounded-full ${

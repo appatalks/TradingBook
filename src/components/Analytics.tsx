@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Trade, PerformanceMetrics } from '../types/Trade';
+import StockChart from './StockChart';
 
 interface AnalyticsProps {
   trades: Trade[];
@@ -11,6 +12,7 @@ const Analytics: React.FC<AnalyticsProps> = ({ trades }) => {
     startDate: new Date(new Date().getFullYear(), 0, 1).toISOString().slice(0, 10),
     endDate: new Date().toISOString().slice(0, 10)
   });
+  const [selectedSymbol, setSelectedSymbol] = useState<string | null>(null);
 
   useEffect(() => {
     loadMetrics();
@@ -269,7 +271,9 @@ const Analytics: React.FC<AnalyticsProps> = ({ trades }) => {
                   <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                     {symbolStats.map((stat) => (
                       <tr key={stat.symbol}>
-                        <td className="py-2 px-2 text-sm font-medium text-gray-900 dark:text-white">
+                        <td className="py-2 px-2 text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 cursor-pointer"
+                            onClick={() => setSelectedSymbol(stat.symbol)}
+                            title="Click to view stock chart">
                           {stat.symbol}
                         </td>
                         <td className="py-2 px-2 text-sm text-right text-gray-600 dark:text-gray-400">
@@ -373,6 +377,15 @@ const Analytics: React.FC<AnalyticsProps> = ({ trades }) => {
             </div>
           </div>
         </div>
+      )}
+      
+      {/* Stock Chart Modal */}
+      {selectedSymbol && (
+        <StockChart
+          symbol={selectedSymbol}
+          trades={trades || []}
+          onClose={() => setSelectedSymbol(null)}
+        />
       )}
     </div>
   );

@@ -3,6 +3,7 @@ import { Trade, CalendarDay, PerformanceMetrics } from '../types/Trade';
 import PnLCalendar from './PnLCalendar';
 import MetricsCard from './MetricsCard';
 import RecentTradesWidget from './RecentTradesWidget';
+import StockChart from './StockChart';
 
 interface DashboardProps {
   trades: Trade[];
@@ -15,6 +16,7 @@ const Dashboard: React.FC<DashboardProps> = ({ trades }) => {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [selectedDay, setSelectedDay] = useState<{ date: Date; data: CalendarDay | null } | null>(null);
   const [dayTrades, setDayTrades] = useState<Trade[]>([]);
+  const [selectedSymbol, setSelectedSymbol] = useState<string | null>(null);
 
   useEffect(() => {
     loadMetrics();
@@ -176,7 +178,10 @@ const Dashboard: React.FC<DashboardProps> = ({ trades }) => {
             <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
               Recent Trades
             </h2>
-            <RecentTradesWidget trades={trades.slice(0, 5)} />
+            <RecentTradesWidget 
+              trades={trades.slice(0, 5)} 
+              onSymbolClick={(symbol) => setSelectedSymbol(symbol)}
+            />
           </div>
         </div>
       </div>
@@ -244,6 +249,15 @@ const Dashboard: React.FC<DashboardProps> = ({ trades }) => {
             )}
           </div>
         </div>
+      )}
+
+      {/* Stock Chart Modal */}
+      {selectedSymbol && (
+        <StockChart 
+          symbol={selectedSymbol} 
+          trades={trades.filter(trade => trade.symbol === selectedSymbol)}
+          onClose={() => setSelectedSymbol(null)}
+        />
       )}
     </div>
   );
