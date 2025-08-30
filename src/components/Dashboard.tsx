@@ -222,7 +222,13 @@ const Dashboard: React.FC<DashboardProps> = ({ trades }) => {
                       {dayTrades.map((trade) => (
                         <div key={`trade-${trade.id}`} className="text-sm bg-gray-50 dark:bg-gray-700 p-2 rounded">
                           <div className="flex justify-between items-center">
-                            <span className="font-medium">{trade.symbol} {trade.side}</span>
+                            <span className="font-medium">
+                              {trade.symbol} {trade.exitPrice ? 
+                                (trade.side === 'BUY' || trade.side === 'LONG' ? 
+                                  `${trade.side}/SELL` : 
+                                  `${trade.side}/BUY`) : 
+                                trade.side}
+                            </span>
                             <span className={(trade.pnl ?? 0) >= 0 ? 'text-green-600' : 'text-red-600'}>
                               ${(trade.pnl ?? 0).toFixed(2)}
                             </span>
