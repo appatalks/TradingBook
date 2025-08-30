@@ -28,6 +28,8 @@ app/dist/
 *.swp
 *.swo
 *~
+*.backup
+*.bak
 .DS_Store
 Thumbs.db
 
