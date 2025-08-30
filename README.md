@@ -1,18 +1,14 @@
-# Tr## 📸 Screenshot
-
-![TradingBook Interface](https://raw.githubusercontent.com/appatalks/TradingBook/main/assets/tradingbook-screenshot.png)
-
-*TradingBook's clean and intuitive interface showing the dashboard with P&L calendar and trade analytics*Book - Advanced Trading Journal
+# TradingBook - Advanced Trading Journal
 
 A comprehensive, open-source trading journal application built with Electron and React. TradingBook provides all the features of premium trading journals like TradingVue, but completely free and with full data ownership.
 
-## � Screenshot
+## 📸 Screenshot
 
-![TradingBook Interface](assets/tradingbook-screenshot.png)
+![TradingBook Interface](https://raw.githubusercontent.com/appatalks/TradingBook/main/assets/tradingbook-screenshot.png)
 
 *TradingBook's clean and intuitive interface showing the dashboard with P&L calendar and trade analytics*
 
-## �🚀 Features
+## 🚀 Features
 
 ### Core Features
 - **📊 P&L Calendar**: Visual calendar showing daily profits/losses with color coding
@@ -21,14 +17,13 @@ A comprehensive, open-source trading journal application built with Electron and
 - **🔍 Trade Management**: Add, edit, delete, search, and filter trades
 - **📱 Modern UI**: Clean, responsive interface with dark/light themes
 
-### Superior to TradingVue
+### Why Choose TradingBook?
 - ✅ **Completely Free** - No subscription fees
 - ✅ **Data Privacy** - Your data stays on your machine
 - ✅ **Offline First** - No internet required
 - ✅ **Open Source** - Full transparency and customization
 - ✅ **Cross Platform** - Works on Linux, Windows, macOS
 - ✅ **No Data Limits** - Track unlimited trades
-- ✅ **Advanced Analytics** - More metrics than premium competitors
 
 ### Technical Advantages
 - **🗄️ SQLite Database**: Reliable, fast, embedded database
@@ -43,32 +38,30 @@ A comprehensive, open-source trading journal application built with Electron and
 - Node.js 16+ and npm
 - Linux system (other platforms coming soon)
 
-### Installation
+### Installation Options
 
-1. **Clone and Install**:
+#### Option 1: Download AppImage (Recommended)
+1. Download the latest AppImage from [Releases](https://github.com/appatalks/TradingBook/releases)
+2. Make it executable: `chmod +x TradingBook-*.AppImage`
+3. Run: `./TradingBook-*.AppImage`
+
+#### Option 2: Build from Source
 ```bash
+# Clone the repository
 git clone https://github.com/appatalks/TradingBook.git
 cd TradingBook
+
+# Install dependencies
 npm install
-```
 
-2. **Development Mode**:
-```bash
+# Development mode
 npm run electron-dev
-```
 
-3. **Build AppImage**:
-```bash
+# Or build AppImage
 ./build-appimage.sh
 ```
 
-4. **Run AppImage**:
-```bash
-chmod +x dist/TradingBook-*.AppImage
-./dist/TradingBook-*.AppImage
-```
-
-## 💡 Usage
+## 💡 Usage Guide
 
 ### Adding Trades
 1. Navigate to "New Trade" in the sidebar
@@ -88,57 +81,7 @@ chmod +x dist/TradingBook-*.AppImage
 3. Click on any day to see trade details
 4. Navigate between months and years
 
-## 🗂️ Database Structure
-
-The application uses SQLite with the following main tables:
-- `trades`: Core trade data
-- `strategies`: Trading strategies
-- `tags`: Trade categorization
-- `settings`: User preferences
-
-Database location: `~/.config/TradingBook/trades.db`
-
-## 🎨 Customization
-
-### Adding New Strategies
-Strategies are stored in the database and can be managed through the UI or directly in SQLite.
-
-### Theming
-The application supports light/dark themes. Toggle through Settings or Ctrl+D.
-
-### Export Formats
-Support for CSV, JSON, and Excel exports (Excel coming soon).
-
-## 🔧 Development
-
-### Project Structure
-```
-TradingBook/
-├── public/
-│   ├── electron.js      # Main Electron process
-│   ├── preload.js       # Secure IPC bridge
-│   └── index.html       # HTML shell
-├── src/
-│   ├── components/      # React components
-│   ├── database/        # Database logic
-│   ├── types/          # TypeScript definitions
-│   ├── App.tsx         # Main React app
-│   └── index.tsx       # React entry point
-├── package.json        # Dependencies and scripts
-└── build-appimage.sh   # Build script
-```
-
-### Key Scripts
-- `npm start`: Run React dev server
-- `npm run electron-dev`: Run in development mode
-- `npm run build`: Build React app
-- `npm run electron-build`: Build Electron app
-- `./build-appimage.sh`: Create AppImage
-
-### Database Schema
-See `src/database/schema.sql` for the complete database structure.
-
-## 📊 Comparison with TradingVue
+## 📊 TradingBook vs. TradingVue
 
 | Feature | TradingBook | TradingVue |
 |---------|------------|------------|
@@ -148,18 +91,41 @@ See `src/database/schema.sql` for the complete database structure.
 | **Trade Limits** | Unlimited | Plan-dependent |
 | **Open Source** | Yes | No |
 | **Custom Analytics** | Extensible | Fixed |
-| **Screenshot Support** | Yes | Yes |
-| **Multi-Asset** | Yes | Yes |
-| **Mobile App** | Desktop-focused | Yes |
-| **Cloud Sync** | Local only | Yes |
+
+## 🔧 Development
+
+### Project Structure
+```
+TradingBook/
+├── public/             # Electron main process
+├── src/               # React application
+│   ├── components/    # UI components
+│   ├── database/      # Database logic
+│   └── types/         # TypeScript definitions
+├── build/             # Production build
+└── dist/              # AppImage output
+```
+
+### Scripts
+- `npm start` - React development server
+- `npm run electron-dev` - Full development mode
+- `npm run build` - Build React app
+- `npm run electron-build` - Build Electron app
+- `./build-appimage.sh` - Create AppImage
+
+### Database
+- **Location**: `~/.config/TradingBook/trades.db`
+- **Type**: SQLite3 with better-sqlite3
+- **Tables**: trades, strategies, settings
+- **Schema**: See `src/database/schema.sql`
 
 ## 🛣️ Roadmap
 
 ### Version 1.1
-- [ ] Screenshot annotation tools
 - [ ] CSV import from major brokers
 - [ ] Advanced charting integration
 - [ ] Risk management alerts
+- [ ] Screenshot annotation tools
 
 ### Version 1.2
 - [ ] Strategy backtesting
@@ -177,7 +143,6 @@ See `src/database/schema.sql` for the complete database structure.
 
 Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
-### Development Setup
 1. Fork the repository
 2. Create a feature branch
 3. Make your changes
@@ -190,8 +155,8 @@ MIT License - see [LICENSE](LICENSE) for details.
 
 ## 🙋‍♀️ Support
 
-- **Issues**: Create a GitHub issue
-- **Discussions**: Use GitHub Discussions
+- **Issues**: [Create a GitHub issue](https://github.com/appatalks/TradingBook/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/appatalks/TradingBook/discussions)
 - **Security**: Email security@tradingbook.dev
 
 ## 🔒 Privacy & Security
@@ -201,13 +166,8 @@ MIT License - see [LICENSE](LICENSE) for details.
 - **No Network Requests**: No data sent to external servers
 - **Open Source**: Code is fully auditable
 
-## 🚀 Why TradingBook?
+---
 
-TradingBook was created because trading journals shouldn't be subscription services. Your trading data is personal and valuable - you should own it completely. We believe in:
-
-- **Privacy First**: Your data, your machine
-- **No Vendor Lock-in**: Standard database, exportable data  
-- **Community Driven**: Open source, transparent development
-- **Professional Grade**: Enterprise-quality features, free forever
+**TradingBook** was created because trading journals shouldn't be subscription services. Your trading data is personal and valuable - you should own it completely.
 
 Start tracking your trades like a pro, without the pro subscription fees! 📈
