@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router';
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Trade } from '../types/Trade';
 import CSVImport from './CSVImport';
 
@@ -137,7 +137,7 @@ const TradeList: React.FC<TradeListProps> = ({ trades, onUpdate, onDelete, onAdd
           )}
         </div>
       ) : (
-        <div className="bg-white dark:bg-gray-800 shadow-sm rounded-lg overflow-hidden">
+        <div className="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
               <thead className="bg-gray-50 dark:bg-gray-900">
@@ -179,7 +179,7 @@ const TradeList: React.FC<TradeListProps> = ({ trades, onUpdate, onDelete, onAdd
                         <span className="font-medium text-gray-900 dark:text-white">
                           {trade.symbol}
                         </span>
-                        <span className="ml-2 text-xs bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 px-2 py-1 rounded-sm">
+                        <span className="ml-2 text-xs bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 px-2 py-1 rounded">
                           {trade.assetType}
                         </span>
                       </div>

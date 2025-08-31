@@ -128,19 +128,19 @@ const PnLCalendar: React.FC<PnLCalendarProps> = ({ calendarData, month, year, on
       {/* Legend - positioned inline with last week if possible */}
       <div className="flex flex-wrap items-center justify-end gap-3 text-sm">
         <div className="flex items-center space-x-1">
-          <div className="w-4 h-4 bg-red-300 dark:bg-red-700 border border-red-400 dark:border-red-600 rounded-sm"></div>
+          <div className="w-4 h-4 bg-red-300 dark:bg-red-700 border border-red-400 dark:border-red-600 rounded"></div>
           <span className="text-gray-600 dark:text-gray-400">Loss</span>
         </div>
         <div className="flex items-center space-x-1">
-          <div className="w-4 h-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-sm"></div>
+          <div className="w-4 h-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded"></div>
           <span className="text-gray-600 dark:text-gray-400">No trades</span>
         </div>
         <div className="flex items-center space-x-1">
-          <div className="w-4 h-4 bg-green-300 dark:bg-green-700 border border-green-400 dark:border-green-600 rounded-sm"></div>
+          <div className="w-4 h-4 bg-green-300 dark:bg-green-700 border border-green-400 dark:border-green-600 rounded"></div>
           <span className="text-gray-600 dark:text-gray-400">Profit</span>
         </div>
         <div className="flex items-center space-x-1">
-          <div className="w-4 h-4 bg-gray-200 dark:bg-gray-600 border border-gray-300 dark:border-gray-500 rounded-sm"></div>
+          <div className="w-4 h-4 bg-gray-200 dark:bg-gray-600 border border-gray-300 dark:border-gray-500 rounded"></div>
           <span className="text-gray-600 dark:text-gray-400">Weekend</span>
         </div>
       </div>

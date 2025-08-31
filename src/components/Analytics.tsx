@@ -162,14 +162,14 @@ const Analytics: React.FC<AnalyticsProps> = ({ trades }) => {
 
       {/* Overview Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm">
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
           <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Total P&L</h3>
           <p className={`text-2xl font-bold ${(metrics.totalPnL ?? 0) >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
             {(metrics.totalPnL ?? 0) >= 0 ? '+' : ''}${(metrics.totalPnL ?? 0).toFixed(2)}
           </p>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm">
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
           <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Win Rate</h3>
           <p className={`text-2xl font-bold ${(metrics.winRate ?? 0) >= 0.5 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
             {((metrics.winRate ?? 0) * 100).toFixed(1)}%
@@ -179,14 +179,14 @@ const Analytics: React.FC<AnalyticsProps> = ({ trades }) => {
           </p>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm">
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
           <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Profit Factor</h3>
           <p className={`text-2xl font-bold ${(metrics.profitFactor ?? 0) >= 1 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
             {(metrics.profitFactor ?? 0).toFixed(2)}
           </p>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm">
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
           <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Total Trades</h3>
           <p className="text-2xl font-bold text-gray-900 dark:text-white">
             {metrics.totalTrades}
@@ -196,7 +196,7 @@ const Analytics: React.FC<AnalyticsProps> = ({ trades }) => {
 
       {/* Detailed Stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm">
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Win/Loss Analysis</h3>
           <div className="space-y-4">
             <div className="flex justify-between">
@@ -226,7 +226,7 @@ const Analytics: React.FC<AnalyticsProps> = ({ trades }) => {
           </div>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm">
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Risk Metrics</h3>
           <div className="space-y-4">
             <div className="flex justify-between">
@@ -255,7 +255,7 @@ const Analytics: React.FC<AnalyticsProps> = ({ trades }) => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Top Symbols */}
         {symbolStats.length > 0 && (
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
             <div className="p-4">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Top Symbols by P&L</h3>
               <div className="overflow-x-auto">
@@ -298,7 +298,7 @@ const Analytics: React.FC<AnalyticsProps> = ({ trades }) => {
 
         {/* Daily Win Rate */}
         {dailyStats.length > 0 && (
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
             <div className="p-4">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Daily Performance (Recent 10 Days)</h3>
               <div className="overflow-x-auto">
@@ -340,7 +340,7 @@ const Analytics: React.FC<AnalyticsProps> = ({ trades }) => {
 
       {/* Strategy Performance */}
       {strategyStats.length > 0 && (
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
           <div className="p-6">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Strategy Performance</h3>
             <div className="overflow-x-auto">

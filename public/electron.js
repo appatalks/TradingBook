@@ -3,10 +3,105 @@ const path = require('path');
 const isDev = require('electron-is-dev');
 const fs = require('fs');
 const os = require('os');
+const http = require('http');
+const url = require('url');
 const DatabaseManager = require('../src/database/Database');
 
 let mainWindow;
 let db;
+let localServer;
+
+// Simple HTTP server for serving static files in production
+function createLocalServer(buildPath) {
+  return new Promise((resolve, reject) => {
+    const server = http.createServer((req, res) => {
+      let filePath;
+      
+      // Parse the URL to get the pathname
+      const urlPath = url.parse(req.url).pathname;
+      
+      if (urlPath === '/') {
+        // Serve index.html from the ASAR archive
+        filePath = path.join(buildPath, 'index.html');
+      } else {
+        // For static assets (CSS, JS), check if we need unpacked path
+        const requestedFile = path.join(buildPath, urlPath.substring(1));
+        
+        // If we're in an ASAR archive, serve certain files from unpacked directory
+        if (buildPath.includes('app.asar') && 
+           (urlPath.includes('/static/') || 
+            urlPath.includes('.css') || 
+            urlPath.includes('.js') ||
+            urlPath === '/manifest.json' ||
+            urlPath === '/favicon.ico' ||
+            urlPath === '/asset-manifest.json')) {
+          const unpackedPath = buildPath.replace('/app.asar/', '/app.asar.unpacked/');
+          filePath = path.join(unpackedPath, urlPath.substring(1));
+        } else {
+          filePath = requestedFile;
+        }
+      }
+
+      // Check if file exists and serve it
+      fs.access(filePath, fs.constants.F_OK, (err) => {
+        if (err) {
+          res.writeHead(404, { 'Content-Type': 'text/plain' });
+          res.end('File not found');
+          return;
+        }
+
+        // Set content type based on file extension
+        let contentType = 'text/plain';
+        const ext = path.extname(filePath).toLowerCase();
+        switch (ext) {
+          case '.html':
+            contentType = 'text/html';
+            break;
+          case '.css':
+            contentType = 'text/css';
+            break;
+          case '.js':
+            contentType = 'application/javascript';
+            break;
+          case '.json':
+            contentType = 'application/json';
+            break;
+          case '.png':
+            contentType = 'image/png';
+            break;
+          case '.jpg':
+          case '.jpeg':
+            contentType = 'image/jpeg';
+            break;
+          case '.ico':
+            contentType = 'image/x-icon';
+            break;
+        }
+
+        // Read and serve the file
+        fs.readFile(filePath, (err, data) => {
+          if (err) {
+            res.writeHead(500, { 'Content-Type': 'text/plain' });
+            res.end('Internal server error');
+            return;
+          }
+
+          res.writeHead(200, { 'Content-Type': contentType });
+          res.end(data);
+        });
+      });
+    });
+
+    // Start server on a random available port
+    server.listen(0, '127.0.0.1', () => {
+      const port = server.address().port;
+      console.log(`Local HTTP server started on http://localhost:${port}`);
+      resolve({ server, port });
+    });
+
+    server.on('error', reject);
+  });
+}
 
 // Settings management
 function getSettingsPath() {
@@ -26,7 +121,7 @@ function getDefaultSettings() {
   };
 }
 
-function createWindow() {
+async function createWindow() {
   // Get screen dimensions for better initial sizing
   const { screen } = require('electron');
   const primaryDisplay = screen.getPrimaryDisplay();
@@ -45,6 +140,7 @@ function createWindow() {
       nodeIntegration: false,
       contextIsolation: true,
       enableRemoteModule: false,
+      webSecurity: false, // Allow loading local resources
       preload: path.join(__dirname, 'preload.js')
     },
     icon: path.join(__dirname, '../assets/icon.png'),
@@ -53,10 +149,17 @@ function createWindow() {
     title: 'TradingBook - Trading Journal'
   });
 
-  // In production (packaged app), electron.js runs from public/ and needs to find build/index.html
-  const startUrl = isDev
-    ? 'http://localhost:3000' 
-    : `file://${path.join(__dirname, '..', 'build', 'index.html')}`;
+  let startUrl;
+  
+  if (isDev) {
+    startUrl = 'http://localhost:3000';
+  } else {
+    // In production, create a local HTTP server to serve static files
+    const buildPath = __dirname;
+    const { server, port } = await createLocalServer(buildPath);
+    localServer = server;
+    startUrl = `http://localhost:${port}`;
+  }
   
   console.log('isDev:', isDev);
   console.log('__dirname:', __dirname);
@@ -876,15 +979,18 @@ ipcMain.handle('fetch-stock-data', async (event, symbol) => {
   }
 });
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   initDatabase();
-  createWindow();
+  await createWindow();
 });
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     if (db) {
       db.close();
+    }
+    if (localServer) {
+      localServer.close();
     }
     app.quit();
   }

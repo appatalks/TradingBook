@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { MemoryRouter as Router, Routes, Route, Navigate } from 'react-router';
+import { MemoryRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Dashboard from './components/Dashboard';
 import TradeList from './components/TradeList';
 import TradeForm from './components/TradeForm';
