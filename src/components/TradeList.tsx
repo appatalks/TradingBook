@@ -19,7 +19,7 @@ const TradeList: React.FC<TradeListProps> = ({ trades, onUpdate, onDelete, onAdd
   
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(20);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
 
   const filteredTrades = trades
     .filter(trade => 
@@ -277,7 +277,7 @@ const TradeList: React.FC<TradeListProps> = ({ trades, onUpdate, onDelete, onAdd
                   className="px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
                 >
                   <option value={10}>10 per page</option>
-                  <option value={25}>25 per page</option>
+                  <option value={20}>20 per page</option>
                   <option value={50}>50 per page</option>
                   <option value={100}>100 per page</option>
                 </select>

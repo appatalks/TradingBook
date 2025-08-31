@@ -51,7 +51,7 @@ const Sidebar: React.FC<SidebarProps> = ({ darkMode }) => {
       </nav>
 
       <div className="absolute bottom-4 left-4 right-4">
-        <div className="text-xs text-gray-500 dark:text-gray-400 text-center">
+        <div className="text-xs text-gray-500 dark:text-gray-400 text-left">
           TradingBook v1.0.0
         </div>
       </div>

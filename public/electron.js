@@ -128,14 +128,14 @@ async function createWindow() {
   const { width: screenWidth, height: screenHeight } = primaryDisplay.workAreaSize;
   
   // Calculate optimal window size (75% of screen size, with reasonable minimums)
-  const windowWidth = Math.max(1300, Math.min(screenWidth * 0.75, 1500));
-  const windowHeight = Math.max(900, Math.min(screenHeight * 0.75, 1000));
+  const windowWidth = Math.max(1400, Math.min(screenWidth * 0.8, 1600));
+  const windowHeight = Math.max(1100, Math.min(screenHeight * 0.85, 1300));
   
   mainWindow = new BrowserWindow({
     width: windowWidth,
     height: windowHeight,
-    minWidth: 1200,
-    minHeight: 750,
+    minWidth: 1300,
+    minHeight: 950,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
