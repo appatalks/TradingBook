@@ -243,58 +243,56 @@ const Dashboard: React.FC<DashboardProps> = ({ trades }) => {
             </div>
             
             <div className="space-y-6">
-              {/* Daily P&L Section */}
-              {selectedDay.data ? (
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center">
-                    <span className="font-medium">Daily P&L:</span>
-                    <span className={`font-semibold ${(selectedDay.data.pnl ?? 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                      ${(selectedDay.data.pnl ?? 0).toFixed(2)}
-                    </span>
-                  </div>
-                  
-                  {dayTrades.length > 0 && (
-                    <div className="mt-4">
-                      <h4 className="font-medium mb-2">Trades ({dayTrades.length}):</h4>
-                      <div className="space-y-2 max-h-40 overflow-y-auto">
-                        {dayTrades.map((trade) => (
-                          <div key={`trade-${trade.id}`} className="text-sm bg-gray-50 dark:bg-gray-700 p-2 rounded">
-                            <div className="flex justify-between items-center">
-                              <span className="font-medium">
-                                {trade.symbol} {trade.exitPrice ? 
-                                  (trade.side === 'BUY' || trade.side === 'LONG' ? 
-                                    `${trade.side}/SELL` : 
-                                    `${trade.side}/BUY`) : 
-                                  trade.side}
-                              </span>
-                              <span className={(trade.pnl ?? 0) >= 0 ? 'text-green-600' : 'text-red-600'}>
-                                ${(trade.pnl ?? 0).toFixed(2)}
-                              </span>
-                            </div>
-                            <div className="text-gray-500 dark:text-gray-400">
-                              Qty: {trade.quantity} @ Entry: ${(trade.entryPrice ?? 0).toFixed(2)}
-                              {trade.exitPrice && ` • Exit: $${trade.exitPrice.toFixed(2)}`}
-                            </div>
-                            {trade.strategy && (
-                              <div className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                                Strategy: {trade.strategy}
-                              </div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  
-                  {dayTrades.length === 0 && selectedDay.data && selectedDay.data.trades > 0 && (
-                    <div className="mt-4 text-sm text-gray-500 dark:text-gray-400">
-                      Unable to load trade details for this day.
-                    </div>
-                  )}
+              {/* Daily P&L and Trades Section */}
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <span className="font-medium">Daily P&L:</span>
+                  <span className={`font-semibold ${(selectedDay.data?.pnl ?? 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    ${(selectedDay.data?.pnl ?? 0).toFixed(2)}
+                  </span>
                 </div>
-              ) : (
-                <p className="text-gray-500 dark:text-gray-400">No trades on this day</p>
-              )}
+                
+                {dayTrades.length > 0 ? (
+                  <div className="mt-4">
+                    <h4 className="font-medium mb-2">Trades ({dayTrades.length}):</h4>
+                    <div className="space-y-2 max-h-40 overflow-y-auto">
+                      {dayTrades.map((trade) => (
+                        <div key={`trade-${trade.id}`} className="text-sm bg-gray-50 dark:bg-gray-700 p-2 rounded">
+                          <div className="flex justify-between items-center">
+                            <span className="font-medium">
+                              {trade.symbol} {trade.exitPrice ? 
+                                (trade.side === 'BUY' || trade.side === 'LONG' ? 
+                                  `${trade.side}/SELL` : 
+                                  `${trade.side}/BUY`) : 
+                                trade.side}
+                            </span>
+                            <span className={(trade.pnl ?? 0) >= 0 ? 'text-green-600' : 'text-red-600'}>
+                              ${(trade.pnl ?? 0).toFixed(2)}
+                            </span>
+                          </div>
+                          <div className="text-gray-500 dark:text-gray-400">
+                            Qty: {trade.quantity} @ Entry: ${(trade.entryPrice ?? 0).toFixed(2)}
+                            {trade.exitPrice && ` • Exit: $${trade.exitPrice.toFixed(2)}`}
+                          </div>
+                          {trade.strategy && (
+                            <div className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                              Strategy: {trade.strategy}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : selectedDay.data && selectedDay.data.trades > 0 ? (
+                  <div className="mt-4 text-sm text-gray-500 dark:text-gray-400">
+                    Unable to load trade details for this day.
+                  </div>
+                ) : (
+                  <div className="mt-4 text-sm text-gray-500 dark:text-gray-400">
+                    No trades on this day
+                  </div>
+                )}
+              </div>
 
               {/* Daily Notes Section */}
               <div className="border-t pt-4 dark:border-gray-600">
