@@ -192,22 +192,10 @@ function initDatabase() {
     db = new DatabaseManager();
     console.log('Database initialized successfully');
     
-    // Automatically run P&L matching on startup
-    setTimeout(() => {
-      performPnLMatching();
-    }, 2000); // Give the app 2 seconds to fully load
+    // Database initialized - P&L matching is now manual only
+    console.log('Database ready. P&L matching is available through Settings menu.');
   } catch (error) {
     console.error('Failed to initialize database:', error);
-  }
-}
-
-async function performPnLMatching() {
-  try {
-    console.log('Auto P&L matching triggered on startup...');
-    const result = await matchAndCalculatePnL();
-    console.log('Auto P&L matching completed successfully');
-  } catch (error) {
-    console.error('Auto P&L matching failed:', error);
   }
 }
 
@@ -450,71 +438,68 @@ ipcMain.handle('export-csv', async (event) => {
 // Function to match buy/sell pairs and calculate P&L
 async function matchAndCalculatePnL() {
   try {
-    // Get all trades from the database using the DatabaseManager's getTrades method
-    const trades = await db.getTrades();
-    console.log(`Found ${trades.length} trades to process for P&L matching`);
-
-    if (trades.length === 0) {
-      console.log('No trades found to match');
-      return;
-    }
-
-    // Group trades by symbol
-    const tradesBySymbol = {};
-    trades.forEach(trade => {
-      const symbol = trade.symbol;
-      if (!tradesBySymbol[symbol]) {
-        tradesBySymbol[symbol] = { buys: [], sells: [] };
-      }
+    console.log('Starting P&L matching process...');
+    
+    let hasMatches = true;
+    let iterationCount = 0;
+    const maxIterations = 50; // Safety limit to prevent infinite loops
+    
+    while (hasMatches && iterationCount < maxIterations) {
+      iterationCount++;
+      hasMatches = false;
       
-      if (trade.side === 'BUY') {
-        tradesBySymbol[symbol].buys.push({
-          ...trade,
-          remainingQuantity: trade.quantity
-        });
-      } else if (trade.side === 'SELL') {
-        tradesBySymbol[symbol].sells.push({
-          ...trade,
-          remainingQuantity: trade.quantity
-        });
-      }
-    });
-
-    console.log(`Processing ${Object.keys(tradesBySymbol).length} symbols for matching`);
-
-    // Process each symbol to match buy/sell pairs
-    for (const symbol in tradesBySymbol) {
-      const { buys, sells } = tradesBySymbol[symbol];
-      console.log(`Processing ${symbol}: ${buys.length} buys, ${sells.length} sells`);
+      console.log(`--- P&L Matching Iteration ${iterationCount} ---`);
       
-      if (buys.length === 0 || sells.length === 0) {
-        console.log(`Skipping ${symbol} - no matching pairs possible`);
-        continue;
+      // Get fresh trades from database for each iteration
+      const allTrades = await db.getTrades();
+      console.log(`Found ${allTrades.length} total trades in database`);
+
+      // Filter out trades that already have P&L calculated (already matched)
+      const unmatchedTrades = allTrades.filter(trade => trade.pnl === null || trade.pnl === undefined);
+      console.log(`Found ${unmatchedTrades.length} unmatched trades to process`);
+
+      if (unmatchedTrades.length === 0) {
+        console.log('No unmatched trades found - all trades already have P&L calculated');
+        break;
       }
-      
-      // Sort by date for FIFO matching
-      buys.sort((a, b) => new Date(a.entryDate) - new Date(b.entryDate));
-      sells.sort((a, b) => new Date(a.entryDate) - new Date(b.entryDate));
 
-      let buyIndex = 0;
-      let sellIndex = 0;
+      // Group trades by symbol
+      const tradesBySymbol = {};
+      unmatchedTrades.forEach(trade => {
+        const symbol = trade.symbol;
+        if (!tradesBySymbol[symbol]) {
+          tradesBySymbol[symbol] = { buys: [], sells: [] };
+        }
+        
+        if (trade.side === 'BUY') {
+          tradesBySymbol[symbol].buys.push(trade);
+        } else if (trade.side === 'SELL') {
+          tradesBySymbol[symbol].sells.push(trade);
+        }
+      });
 
-      while (buyIndex < buys.length && sellIndex < sells.length) {
-        const buy = buys[buyIndex];
-        const sell = sells[sellIndex];
+      console.log(`Processing ${Object.keys(tradesBySymbol).length} symbols for matching`);
 
-        if (buy.remainingQuantity <= 0) {
-          buyIndex++;
+      // Process each symbol to find and create one match per iteration
+      for (const symbol in tradesBySymbol) {
+        const { buys, sells } = tradesBySymbol[symbol];
+        console.log(`Processing ${symbol}: ${buys.length} buys, ${sells.length} sells`);
+        
+        if (buys.length === 0 || sells.length === 0) {
+          console.log(`Skipping ${symbol} - no matching pairs possible`);
           continue;
         }
+        
+        // Sort by date for FIFO matching
+        buys.sort((a, b) => new Date(a.entryDate) - new Date(b.entryDate));
+        sells.sort((a, b) => new Date(a.entryDate) - new Date(b.entryDate));
 
-        if (sell.remainingQuantity <= 0) {
-          sellIndex++;
-          continue;
-        }
-
+        // Find first available buy and sell to match
+        const buy = buys[0];
+        const sell = sells[0];
+        
         // Match quantities using FIFO
-        const matchedQuantity = Math.min(buy.remainingQuantity, sell.remainingQuantity);
+        const matchedQuantity = Math.min(buy.quantity, sell.quantity);
         
         if (matchedQuantity > 0) {
           // Calculate P&L
@@ -555,9 +540,9 @@ async function matchAndCalculatePnL() {
           console.log(`Deleted original buy trade ${buy.id} and sell trade ${sell.id}`);
 
           // Handle partial fills
-          if (buy.remainingQuantity > matchedQuantity) {
+          if (buy.quantity > matchedQuantity) {
             // Create a new buy trade for the remainder
-            const remainderQty = buy.remainingQuantity - matchedQuantity;
+            const remainderQty = buy.quantity - matchedQuantity;
             const remainderTrade = {
               symbol: buy.symbol,
               side: 'BUY',
@@ -582,9 +567,9 @@ async function matchAndCalculatePnL() {
             console.log(`Created remainder buy trade for ${remainderQty} shares of ${symbol}`);
           }
 
-          if (sell.remainingQuantity > matchedQuantity) {
+          if (sell.quantity > matchedQuantity) {
             // Create a new sell trade for the remainder
-            const remainderQty = sell.remainingQuantity - matchedQuantity;
+            const remainderQty = sell.quantity - matchedQuantity;
             const remainderTrade = {
               symbol: sell.symbol,
               side: 'SELL',
@@ -609,11 +594,14 @@ async function matchAndCalculatePnL() {
             console.log(`Created remainder sell trade for ${remainderQty} shares of ${symbol}`);
           }
 
-          // Update remaining quantities
-          buy.remainingQuantity -= matchedQuantity;
-          sell.remainingQuantity -= matchedQuantity;
+          hasMatches = true;
+          break; // Process one match per iteration to avoid stale data issues
         }
       }
+    }
+
+    if (iterationCount >= maxIterations) {
+      console.warn('P&L matching stopped due to iteration limit - possible infinite loop detected');
     }
 
     console.log('P&L matching completed successfully');
@@ -783,9 +771,8 @@ ipcMain.handle('import-csv', async (event) => {
       
       console.log(`CSV import completed: ${importedCount} imported, ${errorCount} errors`);
       
-      // Now process the imported trades to match buy/sell pairs and calculate P&L
-      console.log('Starting to match buy/sell pairs for P&L calculation...');
-      await matchAndCalculatePnL();
+      // CSV import complete - P&L matching is now manual only
+      console.log('CSV import completed. Use "Match P&L" from Settings menu to calculate P&L for imported trades.');
       
       return { 
         success: true, 

@@ -83,7 +83,7 @@ const Settings: React.FC<SettingsProps> = ({ darkMode, onToggleDarkMode }) => {
   };
 
   const handleImportData = async () => {
-    if (confirm('This will import trades from a CSV file. Duplicate trades may be created. Continue?')) {
+    if (confirm('This will import trades from a CSV file. Duplicate trades may be created. After import, use "Match P&L" to calculate profits/losses. Continue?')) {
       try {
         if (window.electronAPI) {
           const result = await window.electronAPI.importCsv();
@@ -95,7 +95,7 @@ const Settings: React.FC<SettingsProps> = ({ darkMode, onToggleDarkMode }) => {
                 message += `\n\nFirst few errors:\n${result.errorDetails.slice(0, 3).join('\n')}`;
               }
             }
-            message += '\n\nRefresh the page to see imported trades.';
+            message += '\n\nNext step: Click "Match P&L" to calculate profits and losses for your trades.';
             alert(message);
           } else {
             if (result.error !== 'Import canceled') {
