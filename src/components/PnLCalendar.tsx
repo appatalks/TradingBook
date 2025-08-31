@@ -91,7 +91,7 @@ const PnLCalendar: React.FC<PnLCalendarProps> = ({ calendarData, month, year, on
       <div
         key={day}
         className={`${getCellClass(day, dayData)} cursor-pointer`}
-        title={dayData ? `${(dayData.pnl ?? 0) > 0 ? '+' : ''}$${(dayData.pnl ?? 0).toFixed(2)} (${dayData.tradeCount} trades)` : 'No trades'}
+        title={dayData ? `${(dayData.pnl ?? 0) > 0 ? '+' : ''}$${(dayData.pnl ?? 0).toFixed(2)} (${dayData.trades} trades)` : 'No trades'}
         onClick={() => onDayClick?.(clickDate, dayData || null)}
       >
         <div className="text-lg font-bold mb-1">{day}</div>
@@ -102,7 +102,7 @@ const PnLCalendar: React.FC<PnLCalendarProps> = ({ calendarData, month, year, on
         )}
         {dayData && (
           <div className="text-xs opacity-75">
-            {dayData.tradeCount} trade{dayData.tradeCount !== 1 ? 's' : ''}
+            {dayData.trades} trade{dayData.trades !== 1 ? 's' : ''}
           </div>
         )}
       </div>

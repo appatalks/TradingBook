@@ -16,6 +16,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getPerformanceMetrics: (dateRange) => ipcRenderer.invoke('get-performance-metrics', dateRange),
   getCalendarData: (month, year) => ipcRenderer.invoke('get-calendar-data', month, year),
   
+  // Daily notes
+  saveDailyNote: (date, notes) => ipcRenderer.invoke('save-daily-note', date, notes),
+  getDailyNote: (date) => ipcRenderer.invoke('get-daily-note', date),
+  deleteDailyNote: (date) => ipcRenderer.invoke('delete-daily-note', date),
+  
   // Settings
   saveSettings: (settings) => ipcRenderer.invoke('save-settings', settings),
   loadSettings: () => ipcRenderer.invoke('load-settings'),

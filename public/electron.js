@@ -391,6 +391,34 @@ ipcMain.handle('get-calendar-data', async (event, month, year) => {
   }
 });
 
+// Daily notes handlers
+ipcMain.handle('save-daily-note', async (event, date, notes) => {
+  try {
+    return await db.saveDailyNote(date, notes);
+  } catch (error) {
+    console.error('Failed to save daily note:', error);
+    throw error;
+  }
+});
+
+ipcMain.handle('get-daily-note', async (event, date) => {
+  try {
+    return await db.getDailyNote(date);
+  } catch (error) {
+    console.error('Failed to get daily note:', error);
+    throw error;
+  }
+});
+
+ipcMain.handle('delete-daily-note', async (event, date) => {
+  try {
+    return await db.deleteDailyNote(date);
+  } catch (error) {
+    console.error('Failed to delete daily note:', error);
+    throw error;
+  }
+});
+
 // Settings handlers
 ipcMain.handle('save-settings', async (event, settings) => {
   try {

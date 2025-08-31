@@ -345,6 +345,51 @@ class DatabaseManager {
     });
   }
 
+  // Daily notes operations
+  saveDailyNote(date, notes) {
+    return new Promise((resolve, reject) => {
+      try {
+        // Date should be in YYYY-MM-DD format
+        const stmt = this.db.prepare(`
+          INSERT OR REPLACE INTO daily_notes (date, notes, updated_at)
+          VALUES (?, ?, CURRENT_TIMESTAMP)
+        `);
+        
+        const result = stmt.run(date, notes);
+        resolve({ success: true, id: result.lastInsertRowid });
+      } catch (err) {
+        console.error('Database saveDailyNote error:', err);
+        reject(err);
+      }
+    });
+  }
+
+  getDailyNote(date) {
+    return new Promise((resolve, reject) => {
+      try {
+        const stmt = this.db.prepare('SELECT * FROM daily_notes WHERE date = ?');
+        const note = stmt.get(date);
+        resolve(note);
+      } catch (err) {
+        console.error('Database getDailyNote error:', err);
+        reject(err);
+      }
+    });
+  }
+
+  deleteDailyNote(date) {
+    return new Promise((resolve, reject) => {
+      try {
+        const stmt = this.db.prepare('DELETE FROM daily_notes WHERE date = ?');
+        const result = stmt.run(date);
+        resolve({ deleted: result.changes });
+      } catch (err) {
+        console.error('Database deleteDailyNote error:', err);
+        reject(err);
+      }
+    });
+  }
+
   // Backup/restore utility methods
   getDatabasePath() {
     return this.dbPath;

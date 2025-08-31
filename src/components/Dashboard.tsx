@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Trade, CalendarDay, PerformanceMetrics } from '../types/Trade';
+import { Trade, CalendarDay, PerformanceMetrics, DailyNote } from '../types/Trade';
 import PnLCalendar from './PnLCalendar';
 import MetricsCard from './MetricsCard';
 import RecentTradesWidget from './RecentTradesWidget';
@@ -17,6 +17,9 @@ const Dashboard: React.FC<DashboardProps> = ({ trades }) => {
   const [selectedDay, setSelectedDay] = useState<{ date: Date; data: CalendarDay | null } | null>(null);
   const [dayTrades, setDayTrades] = useState<Trade[]>([]);
   const [selectedSymbol, setSelectedSymbol] = useState<string | null>(null);
+  const [dailyNote, setDailyNote] = useState<DailyNote | null>(null);
+  const [noteText, setNoteText] = useState('');
+  const [isSavingNote, setIsSavingNote] = useState(false);
 
   useEffect(() => {
     loadMetrics();
@@ -59,28 +62,61 @@ const Dashboard: React.FC<DashboardProps> = ({ trades }) => {
         return calendarDateString === dateString;
       });
       
-      if (!dayData || dayData.tradeCount === 0) {
-        setDayTrades([]);
-        setSelectedDay({ date, data: null });
-        return;
+      // Load trades for the day (if any)
+      let tradesForDay: Trade[] = [];
+      if (dayData && dayData.trades > 0) {
+        tradesForDay = await window.electronAPI.getTrades({
+          startDate: dateString,
+          endDate: dateString
+        });
       }
       
-      const tradesForDay = await window.electronAPI.getTrades({
-        startDate: dateString,
-        endDate: dateString
-      });
+      // Load daily note for this day
+      const note = await window.electronAPI.getDailyNote(dateString);
+      setDailyNote(note);
+      setNoteText(note?.notes || '');
       
       setDayTrades(tradesForDay);
-      setSelectedDay({ date, data: dayData });
+      setSelectedDay({ date, data: dayData || null });
     } catch (error) {
-      console.error('Failed to load trades for day:', error);
+      console.error('Failed to load day data:', error);
       setDayTrades([]);
+      setDailyNote(null);
+      setNoteText('');
       setSelectedDay({ date, data: null });
     }
   };
 
   const closeDayModal = () => {
     setSelectedDay(null);
+    setDailyNote(null);
+    setNoteText('');
+    setIsSavingNote(false);
+  };
+
+  const handleSaveNote = async () => {
+    if (!selectedDay) return;
+    
+    try {
+      setIsSavingNote(true);
+      const dateString = selectedDay.date.toLocaleDateString('en-CA');
+      
+      if (noteText.trim()) {
+        // Save or update note
+        await window.electronAPI.saveDailyNote(dateString, noteText.trim());
+        // Reload the note to get updated data
+        const updatedNote = await window.electronAPI.getDailyNote(dateString);
+        setDailyNote(updatedNote);
+      } else if (dailyNote) {
+        // Delete note if text is empty and note exists
+        await window.electronAPI.deleteDailyNote(dateString);
+        setDailyNote(null);
+      }
+    } catch (error) {
+      console.error('Failed to save daily note:', error);
+    } finally {
+      setIsSavingNote(false);
+    }
   };
 
   // Handle click outside modal to close
@@ -193,7 +229,7 @@ const Dashboard: React.FC<DashboardProps> = ({ trades }) => {
       {/* Day Details Modal */}
       {selectedDay && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="day-modal-content bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4 max-h-96 overflow-y-auto">
+          <div className="day-modal-content bg-white dark:bg-gray-800 rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
                 {selectedDay.date.toDateString()}
@@ -206,57 +242,98 @@ const Dashboard: React.FC<DashboardProps> = ({ trades }) => {
               </button>
             </div>
             
-            {selectedDay.data ? (
-              <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <span className="font-medium">Daily P&L:</span>
-                  <span className={`font-semibold ${(selectedDay.data.pnl ?? 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                    ${(selectedDay.data.pnl ?? 0).toFixed(2)}
-                  </span>
-                </div>
-                
-                {dayTrades.length > 0 && (
-                  <div className="mt-4">
-                    <h4 className="font-medium mb-2">Trades ({dayTrades.length}):</h4>
-                    <div className="space-y-2">
-                      {dayTrades.map((trade) => (
-                        <div key={`trade-${trade.id}`} className="text-sm bg-gray-50 dark:bg-gray-700 p-2 rounded">
-                          <div className="flex justify-between items-center">
-                            <span className="font-medium">
-                              {trade.symbol} {trade.exitPrice ? 
-                                (trade.side === 'BUY' || trade.side === 'LONG' ? 
-                                  `${trade.side}/SELL` : 
-                                  `${trade.side}/BUY`) : 
-                                trade.side}
-                            </span>
-                            <span className={(trade.pnl ?? 0) >= 0 ? 'text-green-600' : 'text-red-600'}>
-                              ${(trade.pnl ?? 0).toFixed(2)}
-                            </span>
-                          </div>
-                          <div className="text-gray-500 dark:text-gray-400">
-                            Qty: {trade.quantity} @ Entry: ${(trade.entryPrice ?? 0).toFixed(2)}
-                            {trade.exitPrice && ` • Exit: $${trade.exitPrice.toFixed(2)}`}
-                          </div>
-                          {trade.strategy && (
-                            <div className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                              Strategy: {trade.strategy}
+            <div className="space-y-6">
+              {/* Daily P&L Section */}
+              {selectedDay.data ? (
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <span className="font-medium">Daily P&L:</span>
+                    <span className={`font-semibold ${(selectedDay.data.pnl ?? 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      ${(selectedDay.data.pnl ?? 0).toFixed(2)}
+                    </span>
+                  </div>
+                  
+                  {dayTrades.length > 0 && (
+                    <div className="mt-4">
+                      <h4 className="font-medium mb-2">Trades ({dayTrades.length}):</h4>
+                      <div className="space-y-2 max-h-40 overflow-y-auto">
+                        {dayTrades.map((trade) => (
+                          <div key={`trade-${trade.id}`} className="text-sm bg-gray-50 dark:bg-gray-700 p-2 rounded">
+                            <div className="flex justify-between items-center">
+                              <span className="font-medium">
+                                {trade.symbol} {trade.exitPrice ? 
+                                  (trade.side === 'BUY' || trade.side === 'LONG' ? 
+                                    `${trade.side}/SELL` : 
+                                    `${trade.side}/BUY`) : 
+                                  trade.side}
+                              </span>
+                              <span className={(trade.pnl ?? 0) >= 0 ? 'text-green-600' : 'text-red-600'}>
+                                ${(trade.pnl ?? 0).toFixed(2)}
+                              </span>
                             </div>
-                          )}
-                        </div>
-                      ))}
+                            <div className="text-gray-500 dark:text-gray-400">
+                              Qty: {trade.quantity} @ Entry: ${(trade.entryPrice ?? 0).toFixed(2)}
+                              {trade.exitPrice && ` • Exit: $${trade.exitPrice.toFixed(2)}`}
+                            </div>
+                            {trade.strategy && (
+                              <div className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                                Strategy: {trade.strategy}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {dayTrades.length === 0 && selectedDay.data && selectedDay.data.trades > 0 && (
+                    <div className="mt-4 text-sm text-gray-500 dark:text-gray-400">
+                      Unable to load trade details for this day.
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <p className="text-gray-500 dark:text-gray-400">No trades on this day</p>
+              )}
+
+              {/* Daily Notes Section */}
+              <div className="border-t pt-4 dark:border-gray-600">
+                <h4 className="font-medium mb-3 text-gray-900 dark:text-white">Daily Notes</h4>
+                <div className="space-y-3">
+                  <textarea
+                    value={noteText}
+                    onChange={(e) => setNoteText(e.target.value)}
+                    placeholder="Add your notes for this day..."
+                    className="w-full h-24 px-3 py-2 border border-gray-300 rounded-md resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400"
+                  />
+                  <div className="flex justify-between items-center">
+                    <div className="text-xs text-gray-500 dark:text-gray-400">
+                      {dailyNote?.updatedAt && (
+                        <span>Last updated: {new Date(dailyNote.updatedAt).toLocaleString()}</span>
+                      )}
+                    </div>
+                    <div className="flex space-x-2">
+                      {dailyNote && noteText.trim() === '' && (
+                        <button
+                          onClick={handleSaveNote}
+                          disabled={isSavingNote}
+                          className="px-3 py-1 text-sm bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50"
+                        >
+                          {isSavingNote ? 'Deleting...' : 'Delete Note'}
+                        </button>
+                      )}
+                      <button
+                        onClick={handleSaveNote}
+                        disabled={isSavingNote || (noteText === (dailyNote?.notes || ''))}
+                        className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+                      >
+                        {isSavingNote ? 'Saving...' : 'Save Note'}
+                      </button>
                     </div>
                   </div>
-                )}
-                
-                {dayTrades.length === 0 && selectedDay.data && selectedDay.data.tradeCount > 0 && (
-                  <div className="mt-4 text-sm text-gray-500 dark:text-gray-400">
-                    Unable to load trade details for this day.
-                  </div>
-                )}
+                </div>
               </div>
-            ) : (
-              <p className="text-gray-500 dark:text-gray-400">No trades on this day</p>
-            )}
+            </div>
           </div>
         </div>
       )}

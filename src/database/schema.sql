@@ -46,11 +46,21 @@ CREATE TABLE IF NOT EXISTS settings (
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Daily notes table for journaling
+CREATE TABLE IF NOT EXISTS daily_notes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    date TEXT NOT NULL UNIQUE, -- YYYY-MM-DD format
+    notes TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Indexes for better performance
 CREATE INDEX IF NOT EXISTS idx_trades_symbol ON trades(symbol);
 CREATE INDEX IF NOT EXISTS idx_trades_entry_date ON trades(entry_date);
 CREATE INDEX IF NOT EXISTS idx_trades_strategy ON trades(strategy);
 CREATE INDEX IF NOT EXISTS idx_trades_asset_type ON trades(asset_type);
+CREATE INDEX IF NOT EXISTS idx_daily_notes_date ON daily_notes(date);
 
 -- Insert default strategies
 INSERT OR IGNORE INTO strategies (name, description, color) VALUES

@@ -49,8 +49,19 @@ export interface PerformanceMetrics {
 export interface CalendarDay {
   date: Date;
   pnl: number;
-  tradeCount: number;
-  winRate: number;
+  trades: number;
+}
+
+export interface DailyNote {
+  id?: number;
+  date: string; // YYYY-MM-DD format
+  notes: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface MonthlyData {
+  [day: string]: CalendarDay;
 }
 
 export interface Strategy {
@@ -83,6 +94,11 @@ declare global {
       // Analytics
       getPerformanceMetrics: (dateRange: { startDate?: Date; endDate?: Date }) => Promise<PerformanceMetrics>;
       getCalendarData: (month: number, year: number) => Promise<CalendarDay[]>;
+      
+      // Daily notes
+      saveDailyNote: (date: string, notes: string) => Promise<{ success: boolean; id?: number }>;
+      getDailyNote: (date: string) => Promise<DailyNote | null>;
+      deleteDailyNote: (date: string) => Promise<{ deleted: number }>;
       
       // Settings
       saveSettings: (settings: any) => Promise<{ success: boolean }>;
