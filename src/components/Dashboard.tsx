@@ -62,14 +62,12 @@ const Dashboard: React.FC<DashboardProps> = ({ trades }) => {
         return calendarDateString === dateString;
       });
       
-      // Load trades for the day (if any)
-      let tradesForDay: Trade[] = [];
-      if (dayData && dayData.trades > 0) {
-        tradesForDay = await window.electronAPI.getTrades({
-          startDate: dateString,
-          endDate: dateString
-        });
-      }
+      // Always try to load trades for the selected day
+      // Don't rely on calendar data accuracy - let the database tell us if trades exist
+      const tradesForDay = await window.electronAPI.getTrades({
+        startDate: dateString,
+        endDate: dateString
+      });
       
       // Load daily note for this day
       const note = await window.electronAPI.getDailyNote(dateString);
@@ -283,9 +281,9 @@ const Dashboard: React.FC<DashboardProps> = ({ trades }) => {
                       ))}
                     </div>
                   </div>
-                ) : selectedDay.data && selectedDay.data.trades > 0 ? (
+                ) : (selectedDay.data?.pnl !== undefined && selectedDay.data.pnl !== 0) ? (
                   <div className="mt-4 text-sm text-gray-500 dark:text-gray-400">
-                    Unable to load trade details for this day.
+                    Unable to load trade details for this day (P&L: ${(selectedDay.data.pnl ?? 0).toFixed(2)})
                   </div>
                 ) : (
                   <div className="mt-4 text-sm text-gray-500 dark:text-gray-400">
