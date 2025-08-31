@@ -6,6 +6,19 @@ const http = require('http');
 const url = require('url');
 const DatabaseManager = require('../src/database/Database');
 
+// Create debug logger directly to avoid import path issues
+const debugLogger = {
+  isEnabled: true,
+  setEnabled: function(enabled) {
+    this.isEnabled = enabled;
+  },
+  log: function(...args) {
+    if (this.isEnabled) {
+      console.log(...args);
+    }
+  }
+};
+
 let mainWindow;
 let db;
 let localServer;
@@ -94,7 +107,7 @@ function createLocalServer(buildPath) {
     // Start server on a random available port
     server.listen(0, '127.0.0.1', () => {
       const port = server.address().port;
-      console.log(`Local HTTP server started on http://localhost:${port}`);
+      debugLogger.log(`Local HTTP server started on http://localhost:${port}`);
       resolve({ server, port });
     });
 
@@ -116,7 +129,8 @@ function getDefaultSettings() {
     notifications: true,
     autoCalculatePnL: true,
     exportFormat: 'CSV',
-    darkMode: false
+    darkMode: false,
+    debugMode: true // Enable debug logging by default
   };
 }
 
@@ -160,23 +174,23 @@ async function createWindow() {
     startUrl = `http://localhost:${port}`;
   }
   
-  console.log('isDev:', isDev);
-  console.log('__dirname:', __dirname);
-  console.log('Loading URL:', startUrl);
+  debugLogger.log('isDev:', isDev);
+  debugLogger.log('__dirname:', __dirname);
+  debugLogger.log('Loading URL:', startUrl);
 
   // Listen to console messages from renderer process
   mainWindow.webContents.on('console-message', (event, level, message, line, sourceId) => {
-    console.log(`[RENDERER ${level}]:`, message);
-    if (sourceId) console.log(`  Source: ${sourceId}:${line}`);
+    debugLogger.log(`[RENDERER ${level}]:`, message);
+    if (sourceId) debugLogger.log(`  Source: ${sourceId}:${line}`);
   });
 
   // Listen for errors
   mainWindow.webContents.on('crashed', (event, killed) => {
-    console.log('Renderer process crashed:', killed);
+    debugLogger.log('Renderer process crashed:', killed);
   });
 
   mainWindow.webContents.on('unresponsive', () => {
-    console.log('Renderer process became unresponsive');
+    debugLogger.log('Renderer process became unresponsive');
   });
 
   mainWindow.loadURL(startUrl);
@@ -191,17 +205,17 @@ async function createWindow() {
     
     // Simple check after a delay
     setTimeout(() => {
-      console.log('Checking React mount status...');
+      debugLogger.log('Checking React mount status...');
       mainWindow.webContents.executeJavaScript('document.getElementById("root").innerHTML.length').then(length => {
-        console.log('React root content length:', length);
+        debugLogger.log('React root content length:', length);
         if (length > 0) {
-          console.log('SUCCESS: React app mounted successfully!');
+          debugLogger.log('SUCCESS: React app mounted successfully!');
         } else {
-          console.log('ERROR: React app failed to mount - opening DevTools for debugging');
+          debugLogger.log('ERROR: React app failed to mount - opening DevTools for debugging');
           mainWindow.webContents.openDevTools();
         }
       }).catch(err => {
-        console.log('Error checking React mount:', err.message);
+        debugLogger.log('Error checking React mount:', err.message);
       });
     }, 5000);
   });
@@ -214,7 +228,7 @@ async function createWindow() {
     // React Router with MemoryRouter shouldn't trigger this event
     if (parsedUrl.protocol === 'http:' || parsedUrl.protocol === 'https:') {
       event.preventDefault();
-      console.log('Prevented external navigation to:', navigationUrl);
+      debugLogger.log('Prevented external navigation to:', navigationUrl);
     }
   });
 
@@ -292,10 +306,10 @@ async function createWindow() {
 function initDatabase() {
   try {
     db = new DatabaseManager();
-    console.log('Database initialized successfully');
+    debugLogger.log('Database initialized successfully');
     
     // Database initialized - P&L matching is now manual only
-    console.log('Database ready. P&L matching is available through Settings menu.');
+    debugLogger.log('Database ready. P&L matching is available through Settings menu.');
   } catch (error) {
     console.error('Failed to initialize database:', error);
   }
@@ -368,7 +382,11 @@ ipcMain.handle('save-settings', async (event, settings) => {
     }
     
     fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
-    console.log('Settings saved successfully');
+    // Update debug logger with new settings
+    if (settings.debugMode !== undefined) {
+      debugLogger.setEnabled(settings.debugMode);
+    }
+    debugLogger.log('Settings saved successfully');
     return { success: true };
   } catch (error) {
     console.error('Failed to save settings:', error);
@@ -383,11 +401,18 @@ ipcMain.handle('load-settings', async (event) => {
     if (fs.existsSync(settingsPath)) {
       const settingsData = fs.readFileSync(settingsPath, 'utf8');
       const settings = JSON.parse(settingsData);
-      console.log('Settings loaded successfully');
+      debugLogger.log('Settings loaded successfully');
+      // Initialize debug logger with loaded settings
+      if (settings.debugMode !== undefined) {
+        debugLogger.setEnabled(settings.debugMode);
+      }
       return { ...getDefaultSettings(), ...settings };
     } else {
-      console.log('No settings file found, using defaults');
-      return getDefaultSettings();
+      debugLogger.log('No settings file found, using defaults');
+      // Initialize debug logger with default settings
+      const defaults = getDefaultSettings();
+      debugLogger.setEnabled(defaults.debugMode);
+      return defaults;
     }
   } catch (error) {
     console.error('Failed to load settings:', error);
@@ -414,7 +439,7 @@ ipcMain.handle('backup-database', async (event) => {
       db.checkpoint();
       
       fs.copyFileSync(dbPath, result.filePath);
-      console.log('Database backup created:', result.filePath);
+      debugLogger.log('Database backup created:', result.filePath);
       return { success: true, path: result.filePath };
     }
     
@@ -449,7 +474,7 @@ ipcMain.handle('restore-database', async (event) => {
       // Reinitialize database
       db = new DatabaseManager();
       
-      console.log('Database restored from:', backupPath);
+      debugLogger.log('Database restored from:', backupPath);
       return { success: true, path: backupPath };
     }
     
@@ -474,7 +499,7 @@ ipcMain.handle('purge-database', async (event) => {
     // Clear all trades from the database
     db.purgeAllTrades();
     
-    console.log('Database purged successfully');
+    debugLogger.log('Database purged successfully');
     return { success: true };
   } catch (error) {
     console.error('Failed to purge database:', error);
@@ -526,7 +551,7 @@ ipcMain.handle('export-csv', async (event) => {
       const csvContent = csvHeader + csvRows;
       fs.writeFileSync(result.filePath, csvContent, 'utf8');
       
-      console.log('CSV export completed:', result.filePath);
+      debugLogger.log('CSV export completed:', result.filePath);
       return { success: true, path: result.filePath, count: trades.length };
     }
     
@@ -540,7 +565,7 @@ ipcMain.handle('export-csv', async (event) => {
 // Function to match buy/sell pairs and calculate P&L
 async function matchAndCalculatePnL() {
   try {
-    console.log('Starting P&L matching process...');
+    debugLogger.log('Starting P&L matching process...');
     
     let hasMatches = true;
     let iterationCount = 0;
@@ -550,18 +575,18 @@ async function matchAndCalculatePnL() {
       iterationCount++;
       hasMatches = false;
       
-      console.log(`--- P&L Matching Iteration ${iterationCount} ---`);
+      debugLogger.log(`--- P&L Matching Iteration ${iterationCount} ---`);
       
       // Get fresh trades from database for each iteration
       const allTrades = await db.getTrades();
-      console.log(`Found ${allTrades.length} total trades in database`);
+      debugLogger.log(`Found ${allTrades.length} total trades in database`);
 
       // Filter out trades that already have P&L calculated (already matched)
       const unmatchedTrades = allTrades.filter(trade => trade.pnl === null || trade.pnl === undefined);
-      console.log(`Found ${unmatchedTrades.length} unmatched trades to process`);
+      debugLogger.log(`Found ${unmatchedTrades.length} unmatched trades to process`);
 
       if (unmatchedTrades.length === 0) {
-        console.log('No unmatched trades found - all trades already have P&L calculated');
+        debugLogger.log('No unmatched trades found - all trades already have P&L calculated');
         break;
       }
 
@@ -580,15 +605,15 @@ async function matchAndCalculatePnL() {
         }
       });
 
-      console.log(`Processing ${Object.keys(tradesBySymbol).length} symbols for matching`);
+      debugLogger.log(`Processing ${Object.keys(tradesBySymbol).length} symbols for matching`);
 
       // Process each symbol to find and create one match per iteration
       for (const symbol in tradesBySymbol) {
         const { buys, sells } = tradesBySymbol[symbol];
-        console.log(`Processing ${symbol}: ${buys.length} buys, ${sells.length} sells`);
+        debugLogger.log(`Processing ${symbol}: ${buys.length} buys, ${sells.length} sells`);
         
         if (buys.length === 0 || sells.length === 0) {
-          console.log(`Skipping ${symbol} - no matching pairs possible`);
+          debugLogger.log(`Skipping ${symbol} - no matching pairs possible`);
           continue;
         }
         
@@ -609,7 +634,7 @@ async function matchAndCalculatePnL() {
           const exitPrice = sell.entryPrice; // Sell price becomes exit price
           const pnl = (exitPrice - entryPrice) * matchedQuantity - (buy.commission || 0) - (sell.commission || 0);
 
-          console.log(`Matching ${symbol}: ${matchedQuantity} shares @ ${entryPrice} -> ${exitPrice}, P&L: ${pnl.toFixed(2)}`);
+          debugLogger.log(`Matching ${symbol}: ${matchedQuantity} shares @ ${entryPrice} -> ${exitPrice}, P&L: ${pnl.toFixed(2)}`);
 
           // Create a new complete trade with P&L
           const completeTrade = {
@@ -634,12 +659,12 @@ async function matchAndCalculatePnL() {
 
           // Save the complete trade
           await db.saveTrade(completeTrade);
-          console.log(`Created complete trade for ${matchedQuantity} shares of ${symbol} with P&L: $${pnl.toFixed(2)}`);
+          debugLogger.log(`Created complete trade for ${matchedQuantity} shares of ${symbol} with P&L: $${pnl.toFixed(2)}`);
 
           // Delete the original buy and sell trades
           await db.deleteTrade(buy.id);
           await db.deleteTrade(sell.id);
-          console.log(`Deleted original buy trade ${buy.id} and sell trade ${sell.id}`);
+          debugLogger.log(`Deleted original buy trade ${buy.id} and sell trade ${sell.id}`);
 
           // Handle partial fills
           if (buy.quantity > matchedQuantity) {
@@ -666,7 +691,7 @@ async function matchAndCalculatePnL() {
             };
             
             await db.saveTrade(remainderTrade);
-            console.log(`Created remainder buy trade for ${remainderQty} shares of ${symbol}`);
+            debugLogger.log(`Created remainder buy trade for ${remainderQty} shares of ${symbol}`);
           }
 
           if (sell.quantity > matchedQuantity) {
@@ -693,7 +718,7 @@ async function matchAndCalculatePnL() {
             };
             
             await db.saveTrade(remainderTrade);
-            console.log(`Created remainder sell trade for ${remainderQty} shares of ${symbol}`);
+            debugLogger.log(`Created remainder sell trade for ${remainderQty} shares of ${symbol}`);
           }
 
           hasMatches = true;
@@ -706,7 +731,7 @@ async function matchAndCalculatePnL() {
       console.warn('P&L matching stopped due to iteration limit - possible infinite loop detected');
     }
 
-    console.log('P&L matching completed successfully');
+    debugLogger.log('P&L matching completed successfully');
   } catch (error) {
     console.error('Error in matchAndCalculatePnL:', error);
   }
@@ -766,7 +791,7 @@ ipcMain.handle('import-csv', async (event) => {
           }
           values.push(current.trim()); // Add the last field
           
-          console.log(`Debug line ${i + 2}: parsed ${values.length} fields:`, values.map(v => `"${v}"`));
+          debugLogger.log(`Debug line ${i + 2}: parsed ${values.length} fields:`, values.map(v => `"${v}"`));
           
           // Check if this looks like a Schwab CSV format
           if (values.length >= 8 && values[0] && values[1] && values[2] && values[4] && values[5]) {
@@ -776,12 +801,12 @@ ipcMain.handle('import-csv', async (event) => {
             
             // Skip non-trading actions
             if (!action || !['Buy', 'Sell'].includes(action)) {
-              console.log(`Skipping non-trading action: ${action}`);
+              debugLogger.log(`Skipping non-trading action: ${action}`);
               continue;
             }
             
             if (!symbol) {
-              console.log(`Skipping empty symbol`);
+              debugLogger.log(`Skipping empty symbol`);
               continue;
             }
             
@@ -830,7 +855,7 @@ ipcMain.handle('import-csv', async (event) => {
             // Save trade
             await db.saveTrade(trade);
             importedCount++;
-            console.log(`Successfully imported: ${trade.symbol} ${trade.side} ${trade.quantity} @ ${trade.entryPrice}`);
+            debugLogger.log(`Successfully imported: ${trade.symbol} ${trade.side} ${trade.quantity} @ ${trade.entryPrice}`);
             
           } else {
             // Original format for backward compatibility  
@@ -871,10 +896,10 @@ ipcMain.handle('import-csv', async (event) => {
         }
       }
       
-      console.log(`CSV import completed: ${importedCount} imported, ${errorCount} errors`);
+      debugLogger.log(`CSV import completed: ${importedCount} imported, ${errorCount} errors`);
       
       // CSV import complete - P&L matching is now manual only
-      console.log('CSV import completed. Use "Match P&L" from Settings menu to calculate P&L for imported trades.');
+      debugLogger.log('CSV import completed. Use "Match P&L" from Settings menu to calculate P&L for imported trades.');
       
       return { 
         success: true, 
@@ -895,7 +920,7 @@ ipcMain.handle('import-csv', async (event) => {
 // Add IPC handler for manual P&L matching
 ipcMain.handle('match-pnl', async (event) => {
   try {
-    console.log('Manual P&L matching triggered...');
+    debugLogger.log('Manual P&L matching triggered...');
     await matchAndCalculatePnL();
     return { success: true, message: 'P&L matching completed successfully' };
   } catch (error) {
@@ -907,7 +932,7 @@ ipcMain.handle('match-pnl', async (event) => {
 // Add IPC handler for Yahoo Finance API to avoid CORS issues
 ipcMain.handle('fetch-stock-data', async (event, symbol) => {
   try {
-    console.log(`Fetching stock data for ${symbol}...`);
+    debugLogger.log(`Fetching stock data for ${symbol}...`);
     
     const https = require('https');
     const url = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=3mo`;
@@ -969,7 +994,7 @@ ipcMain.handle('fetch-stock-data', async (event, symbol) => {
       throw new Error('No valid price data found');
     }
     
-    console.log(`Successfully fetched ${chartData.length} data points for ${symbol}`);
+    debugLogger.log(`Successfully fetched ${chartData.length} data points for ${symbol}`);
     return { success: true, data: chartData };
     
   } catch (error) {
@@ -981,7 +1006,7 @@ ipcMain.handle('fetch-stock-data', async (event, symbol) => {
 // Add IPC handler for checking updates
 ipcMain.handle('check-for-updates', async (event) => {
   try {
-    console.log('Checking for updates...');
+    debugLogger.log('Checking for updates...');
     
     const https = require('https');
     const packageJson = require('../package.json');
@@ -1020,7 +1045,7 @@ ipcMain.handle('check-for-updates', async (event) => {
     const releaseNotes = response.body?.substring(0, 200) + (response.body?.length > 200 ? '...' : '') || 'No release notes available';
     const downloadUrl = `https://github.com/appatalks/TradingBook/releases/latest`;
     
-    console.log(`Current version: ${currentVersion}, Latest version: ${latestVersion}`);
+    debugLogger.log(`Current version: ${currentVersion}, Latest version: ${latestVersion}`);
     
     // Simple version comparison (works for semantic versioning)
     const hasUpdate = latestVersion && latestVersion !== currentVersion;
@@ -1046,11 +1071,23 @@ ipcMain.handle('check-for-updates', async (event) => {
 // Add IPC handler for opening external links
 ipcMain.handle('open-external', async (event, url) => {
   try {
-    console.log(`Opening external URL: ${url}`);
+    debugLogger.log(`Opening external URL: ${url}`);
     await shell.openExternal(url);
     return { success: true };
   } catch (error) {
     console.error('Failed to open external URL:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Add IPC handler for debug logger control
+ipcMain.handle('set-debug-enabled', async (event, enabled) => {
+  try {
+    debugLogger.setEnabled(enabled);
+    debugLogger.log(`Debug logging ${enabled ? 'enabled' : 'disabled'}`);
+    return { success: true };
+  } catch (error) {
+    console.error('Failed to set debug mode:', error);
     return { success: false, error: error.message };
   }
 });

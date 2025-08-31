@@ -111,6 +111,9 @@ declare global {
       // External links
       openExternal: (url: string) => Promise<void>;
       
+      // Debug logging
+      setDebugEnabled: (enabled: boolean) => Promise<{ success: boolean; error?: string }>;
+      
       // Yahoo Finance API
       fetchStockData: (symbol: string) => Promise<{ success: boolean; data?: any[]; error?: string }>;
     };

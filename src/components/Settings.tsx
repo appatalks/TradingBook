@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import debugLogger from '../utils/debugLogger';
 
 interface SettingsProps {
   darkMode: boolean;
@@ -13,6 +14,7 @@ const Settings: React.FC<SettingsProps> = ({ darkMode, onToggleDarkMode }) => {
     notifications: true,
     autoCalculatePnL: true,
     exportFormat: 'CSV',
+    debugMode: true, // Enable debug logging by default
   });
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -27,6 +29,10 @@ const Settings: React.FC<SettingsProps> = ({ darkMode, onToggleDarkMode }) => {
       if (window.electronAPI) {
         const loadedSettings = await window.electronAPI.loadSettings();
         setSettings(loadedSettings);
+        // Apply debug settings immediately
+        if (loadedSettings.debugMode !== undefined) {
+          debugLogger.setEnabled(loadedSettings.debugMode);
+        }
       }
     } catch (error) {
       console.error('Failed to load settings:', error);
@@ -41,7 +47,9 @@ const Settings: React.FC<SettingsProps> = ({ darkMode, onToggleDarkMode }) => {
       if (window.electronAPI) {
         const settingsToSave = { ...settings, darkMode };
         await window.electronAPI.saveSettings(settingsToSave);
-        console.log('Settings saved successfully');
+        // Apply debug settings immediately
+        debugLogger.setEnabled(settings.debugMode);
+        debugLogger.log('Settings saved successfully');
         // Show a brief success message
         const saveButton = document.querySelector('.save-settings-btn');
         if (saveButton) {
@@ -250,6 +258,44 @@ The application will now restart with an empty database.`);
                 <span
                   className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
                     darkMode ? 'translate-x-6' : 'translate-x-1'
+                  }`}
+                />
+              </button>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div>
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Debug Mode
+                </label>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  Enable console logging for troubleshooting
+                </p>
+              </div>
+              <button
+                onClick={async () => {
+                  const newDebugMode = !settings.debugMode;
+                  setSettings(prev => ({ ...prev, debugMode: newDebugMode }));
+                  
+                  // Update debug logger in renderer process immediately
+                  debugLogger.setEnabled(newDebugMode);
+                  
+                  // Also sync with main process
+                  try {
+                    if (window.electronAPI) {
+                      await window.electronAPI.setDebugEnabled(newDebugMode);
+                    }
+                  } catch (error) {
+                    console.error('Failed to sync debug mode with main process:', error);
+                  }
+                }}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                  settings.debugMode ? 'bg-blue-600' : 'bg-gray-200'
+                }`}
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                    settings.debugMode ? 'translate-x-6' : 'translate-x-1'
                   }`}
                 />
               </button>

@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { Trade } from '../types/Trade';
+import debugLogger from '../utils/debugLogger';
 
 interface CSVImportProps {
   onImport: (trades: Omit<Trade, 'id'>[]) => Promise<void>;
@@ -26,28 +27,28 @@ const CSVImport: React.FC<CSVImportProps> = ({ onImport, onClose }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const parseCSV = (csvText: string): SchwabCSVRow[] => {
-    console.log('🔍 parseCSV called with text length:', csvText.length);
+    debugLogger.log('🔍 parseCSV called with text length:', csvText.length);
     
     const lines = csvText.trim().split('\n');
-    console.log('📋 Total lines found:', lines.length);
+    debugLogger.log('📋 Total lines found:', lines.length);
     
     if (lines.length < 2) {
-      console.log('❌ Not enough lines in CSV');
+      debugLogger.log('❌ Not enough lines in CSV');
       return [];
     }
 
     const firstLine = lines[0];
-    console.log('📄 First line sample:', firstLine);
+    debugLogger.log('📄 First line sample:', firstLine);
     
     // Parse headers - always treat as comma-separated quoted CSV from Schwab
     const headers = firstLine.split(',').map(h => h.trim().replace(/^"(.*)"$/, '$1'));
-    console.log('📋 Headers found:', headers);
+    debugLogger.log('📋 Headers found:', headers);
     
     // Check for required Schwab headers
     const requiredHeaders = ['Date', 'Action', 'Symbol', 'Quantity', 'Price'];
-    console.log('🔍 Checking required headers...');
-    console.log('📋 Expected headers:', requiredHeaders);
-    console.log('📋 Found headers:', headers);
+    debugLogger.log('🔍 Checking required headers...');
+    debugLogger.log('📋 Expected headers:', requiredHeaders);
+    debugLogger.log('📋 Found headers:', headers);
     
     const missingRequired = requiredHeaders.filter(required => !headers.includes(required));
     
@@ -57,15 +58,15 @@ const CSVImport: React.FC<CSVImportProps> = ({ onImport, onClose }) => {
       throw new Error(errorMsg);
     }
     
-    console.log('✅ All required headers found!');
-    console.log('⏳ Processing', lines.length - 1, 'data rows');
+    debugLogger.log('✅ All required headers found!');
+    debugLogger.log('⏳ Processing', lines.length - 1, 'data rows');
 
     const rows: SchwabCSVRow[] = [];
     
     lines.slice(1).forEach((line, index) => {
       if (!line.trim()) return; // Skip empty lines
       
-      console.log(`🔍 Processing line ${index + 2}: ${line.substring(0, 100)}...`);
+      debugLogger.log(`🔍 Processing line ${index + 2}: ${line.substring(0, 100)}...`);
       
       // Enhanced CSV parsing for properly quoted fields with embedded commas
       let values: string[] = [];
@@ -93,14 +94,14 @@ const CSVImport: React.FC<CSVImportProps> = ({ onImport, onClose }) => {
       }
       values.push(current.trim()); // Add the last field
       
-      console.log(`📊 Parsed values for line ${index + 2}:`, values.slice(0, 6)); // Show first 6 values
+      debugLogger.log(`📊 Parsed values for line ${index + 2}:`, values.slice(0, 6)); // Show first 6 values
       
       const row: any = {};
       headers.forEach((header, i) => {
         row[header] = values[i] || '';
       });
       
-      console.log(`✅ Row object for line ${index + 2}:`, {
+      debugLogger.log(`✅ Row object for line ${index + 2}:`, {
         Date: row.Date,
         Action: row.Action,
         Symbol: row.Symbol,
@@ -111,26 +112,26 @@ const CSVImport: React.FC<CSVImportProps> = ({ onImport, onClose }) => {
       rows.push(row as SchwabCSVRow);
     });
     
-    console.log('✅ CSV parsing completed, returning', rows.length, 'rows');
+    debugLogger.log('✅ CSV parsing completed, returning', rows.length, 'rows');
     return rows;
   };
 
   const convertSchwabRowToTrade = (row: SchwabCSVRow, index: number): Omit<Trade, 'id'> | null => {
-    console.log(`🔍 Processing row ${index + 2}:`, row);
+    debugLogger.log(`🔍 Processing row ${index + 2}:`, row);
     
     // Skip non-trading actions first
     const action = String(row.Action || '').trim();
     const symbol = String(row.Symbol || '').trim();
     
-    console.log(`📊 Row ${index + 2}: Action="${action}", Symbol="${symbol}"`);
+    debugLogger.log(`📊 Row ${index + 2}: Action="${action}", Symbol="${symbol}"`);
     
     if (!action || !['Buy', 'Sell'].includes(action)) {
-      console.log(`⏭️ Row ${index + 2}: Skipping non-trading action - Action: "${action}"`);
+      debugLogger.log(`⏭️ Row ${index + 2}: Skipping non-trading action - Action: "${action}"`);
       return null;
     }
     
     if (!symbol) {
-      console.log(`⏭️ Row ${index + 2}: Skipping row with empty symbol - Action: "${action}"`);
+      debugLogger.log(`⏭️ Row ${index + 2}: Skipping row with empty symbol - Action: "${action}"`);
       return null;
     }
 
@@ -145,9 +146,9 @@ const CSVImport: React.FC<CSVImportProps> = ({ onImport, onClose }) => {
       const commissionStr = String(row['Fees & Comm'] || '').replace(/[$,"]/g, '').trim();
       const commission = parseFloat(commissionStr) || 0;
 
-      console.log(`Row ${index + 2}: Parsing - Raw Quantity: "${row.Quantity}" -> Clean: "${quantityStr}" -> ${quantity}`);
-      console.log(`Row ${index + 2}: Parsing - Raw Price: "${row.Price}" -> Clean: "${priceStr}" -> ${price}`);
-      console.log(`Row ${index + 2}: Parsing - Raw Commission: "${row['Fees & Comm']}" -> Clean: "${commissionStr}" -> ${commission}`);
+      debugLogger.log(`Row ${index + 2}: Parsing - Raw Quantity: "${row.Quantity}" -> Clean: "${quantityStr}" -> ${quantity}`);
+      debugLogger.log(`Row ${index + 2}: Parsing - Raw Price: "${row.Price}" -> Clean: "${priceStr}" -> ${price}`);
+      debugLogger.log(`Row ${index + 2}: Parsing - Raw Commission: "${row['Fees & Comm']}" -> Clean: "${commissionStr}" -> ${commission}`);
 
       // Validation with specific error messages
       if (quantity === 0) {
@@ -166,7 +167,7 @@ const CSVImport: React.FC<CSVImportProps> = ({ onImport, onClose }) => {
           throw new Error('Date field is empty');
         }
         
-        console.log(`Row ${index + 2}: Parsing date - Raw: "${row.Date}" -> Clean: "${dateStr}"`);
+        debugLogger.log(`Row ${index + 2}: Parsing date - Raw: "${row.Date}" -> Clean: "${dateStr}"`);
         
         // Handle MM/DD/YYYY format from Schwab
         if (dateStr.includes('/')) {
@@ -190,7 +191,7 @@ const CSVImport: React.FC<CSVImportProps> = ({ onImport, onClose }) => {
           throw new Error(`Date parsing resulted in invalid date object`);
         }
         
-        console.log(`Row ${index + 2}: Date parsed successfully - ${entryDate.toDateString()}`);
+        debugLogger.log(`Row ${index + 2}: Date parsed successfully - ${entryDate.toDateString()}`);
         
       } catch (dateError) {
         throw new Error(`Date parsing failed: ${dateError instanceof Error ? dateError.message : 'Unknown date error'}`);
@@ -219,8 +220,8 @@ const CSVImport: React.FC<CSVImportProps> = ({ onImport, onClose }) => {
       };
 
       // Debug validation before returning
-      console.log(`🔍 Final trade object for row ${index + 2}:`, trade);
-      console.log(`🔍 Validation check for row ${index + 2}:`, {
+      debugLogger.log(`🔍 Final trade object for row ${index + 2}:`, trade);
+      debugLogger.log(`🔍 Validation check for row ${index + 2}:`, {
         hasSymbol: !!trade.symbol,
         hasSide: !!trade.side,
         hasValidQuantity: trade.quantity > 0,
@@ -228,7 +229,7 @@ const CSVImport: React.FC<CSVImportProps> = ({ onImport, onClose }) => {
         hasValidDate: trade.entryDate && !isNaN(trade.entryDate.getTime())
       });
 
-      console.log(`✅ Row ${index + 2}: Successfully parsed trade:`, {
+      debugLogger.log(`✅ Row ${index + 2}: Successfully parsed trade:`, {
         symbol: trade.symbol,
         side: trade.side,
         quantity: trade.quantity,
@@ -263,24 +264,24 @@ const CSVImport: React.FC<CSVImportProps> = ({ onImport, onClose }) => {
 
     try {
       const csvText = await file.text();
-      console.log('CSV file content preview (first 300 chars):', csvText.substring(0, 300));
+      debugLogger.log('CSV file content preview (first 300 chars):', csvText.substring(0, 300));
       
       const csvRows = parseCSV(csvText);
-      console.log('Parsed CSV rows count:', csvRows.length);
-      console.log('First row sample:', csvRows[0]);
+      debugLogger.log('Parsed CSV rows count:', csvRows.length);
+      debugLogger.log('First row sample:', csvRows[0]);
       
       const trades: Omit<Trade, 'id'>[] = [];
       const parseErrors: string[] = [];
 
       csvRows.forEach((row, index) => {
         try {
-          console.log(`🔍 Processing row ${index + 2}:`, row);
+          debugLogger.log(`🔍 Processing row ${index + 2}:`, row);
           const trade = convertSchwabRowToTrade(row, index);
           if (trade) {
             trades.push(trade);
-            console.log(`✅ Row ${index + 2}: Successfully parsed trade for ${trade.symbol}`);
+            debugLogger.log(`✅ Row ${index + 2}: Successfully parsed trade for ${trade.symbol}`);
           } else {
-            console.log(`⏭️ Row ${index + 2}: Skipped (non-trading action)`);
+            debugLogger.log(`⏭️ Row ${index + 2}: Skipped (non-trading action)`);
           }
         } catch (error) {
           const errorMsg = error instanceof Error ? error.message : `Row ${index + 2}: Unknown error`;
@@ -293,10 +294,10 @@ const CSVImport: React.FC<CSVImportProps> = ({ onImport, onClose }) => {
         }
       });
 
-      console.log(`📊 Parsing completed: ${trades.length} successful trades, ${parseErrors.length} errors`);
+      debugLogger.log(`📊 Parsing completed: ${trades.length} successful trades, ${parseErrors.length} errors`);
 
       if (parseErrors.length > 0) {
-        console.log('🚨 First 10 parsing errors:', parseErrors.slice(0, 10));
+        debugLogger.log('🚨 First 10 parsing errors:', parseErrors.slice(0, 10));
         setErrors(parseErrors.slice(0, 20)); // Show first 20 errors to avoid overwhelming UI
       } else {
         setErrors([]);

@@ -3,6 +3,19 @@ const path = require('path');
 const fs = require('fs');
 const { app } = require('electron');
 
+// Create debug logger directly in the file to avoid path issues
+const debugLogger = {
+  isEnabled: true,
+  setEnabled: function(enabled) {
+    this.isEnabled = enabled;
+  },
+  log: function(...args) {
+    if (this.isEnabled) {
+      console.log(...args);
+    }
+  }
+};
+
 class DatabaseManager {
   constructor() {
     this.db = null;
@@ -16,7 +29,7 @@ class DatabaseManager {
     
     try {
       this.db = new Database(this.dbPath);
-      console.log('Connected to SQLite database');
+      debugLogger.log('Connected to SQLite database');
       this.createTables();
     } catch (err) {
       console.error('Error opening database:', err);
@@ -29,7 +42,7 @@ class DatabaseManager {
     
     try {
       this.db.exec(schema);
-      console.log('Database tables created successfully');
+      debugLogger.log('Database tables created successfully');
     } catch (err) {
       console.error('Error creating tables:', err);
     }
@@ -222,7 +235,7 @@ class DatabaseManager {
   getPerformanceMetrics(dateRange) {
     return new Promise((resolve, reject) => {
       try {
-        console.log('Database getPerformanceMetrics called with:', dateRange);
+        debugLogger.log('Database getPerformanceMetrics called with:', dateRange);
         let sql = `
           SELECT 
             COUNT(*) as total_trades,
@@ -245,7 +258,7 @@ class DatabaseManager {
             ? dateRange.startDate.toISOString() 
             : dateRange.startDate;
           params.push(startDate);
-          console.log('Start date parameter:', startDate);
+          debugLogger.log('Start date parameter:', startDate);
         }
         if (dateRange.endDate) {
           sql += ' AND DATE(entry_date) <= DATE(?)';
@@ -254,16 +267,16 @@ class DatabaseManager {
             ? dateRange.endDate.toISOString() 
             : dateRange.endDate;
           params.push(endDate);
-          console.log('End date parameter:', endDate);
+          debugLogger.log('End date parameter:', endDate);
         }
 
-        console.log('Final SQL:', sql);
-        console.log('Parameters:', params);
+        debugLogger.log('Final SQL:', sql);
+        debugLogger.log('Parameters:', params);
 
         const stmt = this.db.prepare(sql);
         const row = stmt.get(...params);
         
-        console.log('Raw SQL result:', row);
+        debugLogger.log('Raw SQL result:', row);
         
         const metrics = {
           totalTrades: row.total_trades || 0,
@@ -281,7 +294,7 @@ class DatabaseManager {
           maxDrawdown: 0 // TODO: Implement max drawdown calculation
         };
         
-        console.log('Processed metrics:', metrics);
+        debugLogger.log('Processed metrics:', metrics);
         resolve(metrics);
       } catch (err) {
         console.error('Error in getPerformanceMetrics:', err);

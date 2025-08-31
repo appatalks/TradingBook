@@ -29,6 +29,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   exportCsv: () => ipcRenderer.invoke('export-csv'),
   importCsv: () => ipcRenderer.invoke('import-csv'),
   
+  // Debug Logger
+  setDebugEnabled: (enabled) => ipcRenderer.invoke('set-debug-enabled', enabled),
+  
   // P&L Matching
   matchPnL: () => ipcRenderer.invoke('match-pnl'),
   
