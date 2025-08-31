@@ -20,6 +20,7 @@ const Dashboard: React.FC<DashboardProps> = ({ trades }) => {
   const [dailyNote, setDailyNote] = useState<DailyNote | null>(null);
   const [noteText, setNoteText] = useState('');
   const [isSavingNote, setIsSavingNote] = useState(false);
+  const [isModalExpanded, setIsModalExpanded] = useState(false);
 
   useEffect(() => {
     loadMetrics();
@@ -90,6 +91,7 @@ const Dashboard: React.FC<DashboardProps> = ({ trades }) => {
     setDailyNote(null);
     setNoteText('');
     setIsSavingNote(false);
+    setIsModalExpanded(false);
   };
 
   const handleSaveNote = async () => {
@@ -227,17 +229,38 @@ const Dashboard: React.FC<DashboardProps> = ({ trades }) => {
       {/* Day Details Modal */}
       {selectedDay && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="day-modal-content bg-white dark:bg-gray-800 rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto">
+          <div className={`day-modal-content bg-white dark:bg-gray-800 rounded-lg p-6 w-full mx-4 overflow-y-auto transition-all duration-300 ${
+            isModalExpanded 
+              ? 'max-w-6xl max-h-[95vh]' 
+              : 'max-w-2xl max-h-[80vh]'
+          }`}>
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
                 {selectedDay.date.toDateString()}
               </h3>
-              <button
-                onClick={closeDayModal}
-                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-              >
-                ✕
-              </button>
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={() => setIsModalExpanded(!isModalExpanded)}
+                  className="p-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
+                  title={isModalExpanded ? "Collapse view" : "Expand view"}
+                >
+                  {isModalExpanded ? (
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5v-4m0 4h-4m4 0l-5-5" />
+                    </svg>
+                  ) : (
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8l4-4m0 0h4m-4 0v4m11-4l-4 4m0 0v4m0-4h4M4 16l4 4m0 0h4m-4 0v-4m11 4l-4-4m0 0v-4m0 4h4" />
+                    </svg>
+                  )}
+                </button>
+                <button
+                  onClick={closeDayModal}
+                  className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                >
+                  ✕
+                </button>
+              </div>
             </div>
             
             <div className="space-y-6">
@@ -253,7 +276,7 @@ const Dashboard: React.FC<DashboardProps> = ({ trades }) => {
                 {dayTrades.length > 0 ? (
                   <div className="mt-4">
                     <h4 className="font-medium mb-2">Trades ({dayTrades.length}):</h4>
-                    <div className="space-y-2 max-h-40 overflow-y-auto">
+                    <div className={`space-y-2 overflow-y-auto ${isModalExpanded ? 'max-h-80' : 'max-h-40'}`}>
                       {dayTrades.map((trade) => (
                         <div key={`trade-${trade.id}`} className="text-sm bg-gray-50 dark:bg-gray-700 p-2 rounded">
                           <div className="flex justify-between items-center">
@@ -300,7 +323,7 @@ const Dashboard: React.FC<DashboardProps> = ({ trades }) => {
                     value={noteText}
                     onChange={(e) => setNoteText(e.target.value)}
                     placeholder="Add your notes for this day..."
-                    className="w-full h-24 px-3 py-2 border border-gray-300 rounded-md resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400"
+                    className={`w-full px-3 py-2 border border-gray-300 rounded-md resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400 ${isModalExpanded ? 'h-32' : 'h-24'}`}
                   />
                   <div className="flex justify-between items-center">
                     <div className="text-xs text-gray-500 dark:text-gray-400">
