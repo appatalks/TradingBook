@@ -45,13 +45,13 @@
     "electron-is-dev": "^2.0.0",
     "react": "^18.2.0",
     "react-chartjs-2": "^5.3.0",
-    "react-dom": "^18.2.0",
+    "react-dom": "^19.1.1",
     "react-router-dom": "^7.8.2"
   },
   "devDependencies": {
     "@types/node": "^24.3.0",
     "@types/react": "^18.0.25",
-    "@types/react-dom": "^18.0.9",
+    "@types/react-dom": "^19.1.9",
     "autoprefixer": "^10.4.21",
     "concurrently": "^9.2.1",
     "electron": "^37.4.0",
