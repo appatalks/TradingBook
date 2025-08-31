@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, ipcMain, dialog } = require('electron');
+const { app, BrowserWindow, Menu, ipcMain, dialog, shell } = require('electron');
 const path = require('path');
 const isDev = require('electron-is-dev');
 const fs = require('fs');
@@ -974,6 +974,83 @@ ipcMain.handle('fetch-stock-data', async (event, symbol) => {
     
   } catch (error) {
     console.error(`Failed to fetch stock data for ${symbol}:`, error.message);
+    return { success: false, error: error.message };
+  }
+});
+
+// Add IPC handler for checking updates
+ipcMain.handle('check-for-updates', async (event) => {
+  try {
+    console.log('Checking for updates...');
+    
+    const https = require('https');
+    const packageJson = require('../package.json');
+    const currentVersion = packageJson.version;
+    const repoUrl = 'https://api.github.com/repos/appatalks/TradingBook/releases/latest';
+    
+    const response = await new Promise((resolve, reject) => {
+      const req = https.get(repoUrl, {
+        headers: {
+          'User-Agent': 'TradingBook-App'
+        }
+      }, (res) => {
+        let data = '';
+        res.on('data', chunk => data += chunk);
+        res.on('end', () => {
+          try {
+            const jsonData = JSON.parse(data);
+            resolve(jsonData);
+          } catch (parseError) {
+            reject(new Error('Failed to parse GitHub API response'));
+          }
+        });
+      });
+      
+      req.on('error', (error) => {
+        reject(new Error(`Network error: ${error.message}`));
+      });
+      
+      req.setTimeout(10000, () => {
+        req.destroy();
+        reject(new Error('Request timeout'));
+      });
+    });
+    
+    const latestVersion = response.tag_name?.replace('v', '') || response.name?.replace('v', '');
+    const releaseNotes = response.body?.substring(0, 200) + (response.body?.length > 200 ? '...' : '') || 'No release notes available';
+    const downloadUrl = `https://github.com/appatalks/TradingBook/releases/latest`;
+    
+    console.log(`Current version: ${currentVersion}, Latest version: ${latestVersion}`);
+    
+    // Simple version comparison (works for semantic versioning)
+    const hasUpdate = latestVersion && latestVersion !== currentVersion;
+    
+    return {
+      hasUpdate,
+      currentVersion,
+      latestVersion,
+      releaseNotes,
+      downloadUrl
+    };
+    
+  } catch (error) {
+    console.error('Failed to check for updates:', error.message);
+    return {
+      hasUpdate: false,
+      currentVersion: require('../package.json').version,
+      error: error.message
+    };
+  }
+});
+
+// Add IPC handler for opening external links
+ipcMain.handle('open-external', async (event, url) => {
+  try {
+    console.log(`Opening external URL: ${url}`);
+    await shell.openExternal(url);
+    return { success: true };
+  } catch (error) {
+    console.error('Failed to open external URL:', error);
     return { success: false, error: error.message };
   }
 });

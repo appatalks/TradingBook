@@ -169,13 +169,15 @@ const Settings: React.FC<SettingsProps> = ({ darkMode, onToggleDarkMode }) => {
     }
   };
 
-  const handlePurgeDatabase = async () => {
+    const handlePurgeDatabase = async () => {
     try {
       if (window.electronAPI) {
         // @ts-ignore - purgeDatabase method is available in electronAPI
         const result = await window.electronAPI.purgeDatabase();
         if (result.success) {
-          alert('Database purged successfully! All trade data has been permanently deleted.\n\nThe application will now restart with an empty database.');
+          alert(`Database purged successfully! All trade data has been permanently deleted.
+
+The application will now restart with an empty database.`);
           // Trigger app restart or reload
           window.location.reload();
         } else {
@@ -187,6 +189,30 @@ const Settings: React.FC<SettingsProps> = ({ darkMode, onToggleDarkMode }) => {
       alert('Failed to purge database. Please try again.');
     } finally {
       setShowPurgeDialog(false);
+    }
+  };
+
+  const handleCheckForUpdates = async () => {
+    try {
+      if (window.electronAPI) {
+        // @ts-ignore - checkForUpdates method will be available in electronAPI
+        const result = await window.electronAPI.checkForUpdates();
+        if (result.hasUpdate) {
+          const message = `🎉 Update Available!\n\nCurrent Version: ${result.currentVersion}\nLatest Version: ${result.latestVersion}\n\nNew in ${result.latestVersion}:\n${result.releaseNotes}\n\nWould you like to download the update?`;
+          if (confirm(message)) {
+            // Open GitHub releases page in external browser
+            // @ts-ignore - openExternal method will be available
+            if (window.electronAPI.openExternal && result.downloadUrl) {
+              window.electronAPI.openExternal(result.downloadUrl);
+            }
+          }
+        } else {
+          alert(`✅ You're up to date!\n\nCurrent Version: ${result.currentVersion}\n\nTradingBook is running the latest version.`);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to check for updates:', error);
+      alert(`❌ Failed to check for updates.\n\nPlease check your internet connection or visit:\nhttps://github.com/appatalks/TradingBook/releases`);
     }
   };
 
@@ -444,11 +470,38 @@ const Settings: React.FC<SettingsProps> = ({ darkMode, onToggleDarkMode }) => {
             <p>
               <span className="font-medium">License:</span> MIT
             </p>
+            <p>
+              <span className="font-medium">Repository:</span>{' '}
+              <button
+                onClick={() => {
+                  // @ts-ignore - openExternal will be available
+                  if (window.electronAPI?.openExternal) {
+                    window.electronAPI.openExternal('https://github.com/appatalks/TradingBook');
+                  }
+                }}
+                className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 underline cursor-pointer"
+              >
+                github.com/appatalks/TradingBook
+              </button>
+            </p>
             <p className="mt-4">
               TradingBook is an open-source trading journal application designed to help traders 
               track, analyze, and improve their trading performance. All your data is stored 
               locally on your machine for maximum privacy and security.
             </p>
+          </div>
+          
+          {/* Check for Updates Button */}
+          <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-600">
+            <button
+              onClick={handleCheckForUpdates}
+              className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-800 text-white font-medium rounded-lg transition-colors duration-200"
+            >
+              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              Check for Updates
+            </button>
           </div>
         </div>
       </div>

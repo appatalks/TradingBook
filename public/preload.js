@@ -32,6 +32,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // P&L Matching
   matchPnL: () => ipcRenderer.invoke('match-pnl'),
   
+  // Update checking
+  checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
+  
+  // External links
+  openExternal: (url) => ipcRenderer.invoke('open-external', url),
+  
   // Yahoo Finance API
   fetchStockData: (symbol) => ipcRenderer.invoke('fetch-stock-data', symbol)
 });

@@ -99,6 +99,18 @@ declare global {
       // P&L Matching
       matchPnL: () => Promise<{ success: boolean; message?: string; error?: string }>;
       
+      // Update checking
+      checkForUpdates: () => Promise<{ 
+        hasUpdate: boolean; 
+        currentVersion: string; 
+        latestVersion?: string; 
+        releaseNotes?: string; 
+        downloadUrl?: string; 
+      }>;
+      
+      // External links
+      openExternal: (url: string) => Promise<void>;
+      
       // Yahoo Finance API
       fetchStockData: (symbol: string) => Promise<{ success: boolean; data?: any[]; error?: string }>;
     };
