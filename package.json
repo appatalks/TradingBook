@@ -43,14 +43,14 @@
     "better-sqlite3": "^12.2.0",
     "chart.js": "^4.5.0",
     "electron-is-dev": "^2.0.0",
-    "react": "^18.2.0",
+    "react": "^19.1.1",
     "react-chartjs-2": "^5.3.0",
     "react-dom": "^18.2.0",
     "react-router-dom": "^7.8.2"
   },
   "devDependencies": {
     "@types/node": "^24.3.0",
-    "@types/react": "^18.0.25",
+    "@types/react": "^19.1.12",
     "@types/react-dom": "^18.0.9",
     "autoprefixer": "^10.4.21",
     "concurrently": "^9.2.1",
