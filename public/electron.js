@@ -308,6 +308,27 @@ function initDatabase() {
     db = new DatabaseManager();
     debugLogger.log('Database initialized successfully');
     
+    // Sync database debug logger with current settings
+    if (db && db.setDebugEnabled) {
+      // Try to load current settings and apply debug mode
+      try {
+        const settingsPath = getSettingsPath();
+        if (fs.existsSync(settingsPath)) {
+          const settingsData = fs.readFileSync(settingsPath, 'utf8');
+          const settings = JSON.parse(settingsData);
+          if (settings.debugMode !== undefined) {
+            db.setDebugEnabled(settings.debugMode);
+          }
+        } else {
+          // Use default settings
+          const defaults = getDefaultSettings();
+          db.setDebugEnabled(defaults.debugMode);
+        }
+      } catch (err) {
+        console.error('Failed to sync database debug logger with settings:', err);
+      }
+    }
+    
     // Database initialized - P&L matching is now manual only
     debugLogger.log('Database ready. P&L matching is available through Settings menu.');
   } catch (error) {
@@ -385,6 +406,10 @@ ipcMain.handle('save-settings', async (event, settings) => {
     // Update debug logger with new settings
     if (settings.debugMode !== undefined) {
       debugLogger.setEnabled(settings.debugMode);
+      // Also sync with database debug logger if available
+      if (db && db.setDebugEnabled) {
+        db.setDebugEnabled(settings.debugMode);
+      }
     }
     debugLogger.log('Settings saved successfully');
     return { success: true };
@@ -405,6 +430,10 @@ ipcMain.handle('load-settings', async (event) => {
       // Initialize debug logger with loaded settings
       if (settings.debugMode !== undefined) {
         debugLogger.setEnabled(settings.debugMode);
+        // Also sync with database debug logger if available
+        if (db && db.setDebugEnabled) {
+          db.setDebugEnabled(settings.debugMode);
+        }
       }
       return { ...getDefaultSettings(), ...settings };
     } else {
@@ -412,6 +441,10 @@ ipcMain.handle('load-settings', async (event) => {
       // Initialize debug logger with default settings
       const defaults = getDefaultSettings();
       debugLogger.setEnabled(defaults.debugMode);
+      // Also sync with database debug logger if available
+      if (db && db.setDebugEnabled) {
+        db.setDebugEnabled(defaults.debugMode);
+      }
       return defaults;
     }
   } catch (error) {
@@ -1084,6 +1117,10 @@ ipcMain.handle('open-external', async (event, url) => {
 ipcMain.handle('set-debug-enabled', async (event, enabled) => {
   try {
     debugLogger.setEnabled(enabled);
+    // Also sync with database debug logger if available
+    if (db && db.setDebugEnabled) {
+      db.setDebugEnabled(enabled);
+    }
     debugLogger.log(`Debug logging ${enabled ? 'enabled' : 'disabled'}`);
     return { success: true };
   } catch (error) {

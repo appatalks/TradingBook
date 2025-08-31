@@ -23,6 +23,11 @@ class DatabaseManager {
     this.init();
   }
 
+  // Method to control debug logging from external sources
+  setDebugEnabled(enabled) {
+    debugLogger.setEnabled(enabled);
+  }
+
   init() {
     const userDataPath = app.getPath('userData');
     this.dbPath = path.join(userDataPath, 'trades.db');
