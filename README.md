@@ -18,7 +18,7 @@ A comprehensive, open-source trading journal application built with Electron and
     <img src="https://raw.githubusercontent.com/appatalks/TradingBook/main/assets/trades.png" alt="Trades List" width="175" style="margin: 5px;">
   </a>
   <a href="https://raw.githubusercontent.com/appatalks/TradingBook/main/assets/analytics.png">
-    <img src="https://raw.githubusercontent.com/appatalks/TradingBook/main/assets/analytics.png" alt="Analytics" width="175" style="margin: 5px;">
+    <img src="https://raw.githubusercontent.com/appatalks/TradingBook/main/assets/analytics.png" alt="Analytics" width="175" style="margin: 5px;"> <p></p>
   </a>
   <a href="https://raw.githubusercontent.com/appatalks/TradingBook/main/assets/summary.png">
     <img src="https://raw.githubusercontent.com/appatalks/TradingBook/main/assets/summary.png" alt="Summary" width="175" style="margin: 5px;">
