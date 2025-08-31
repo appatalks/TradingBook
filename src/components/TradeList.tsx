@@ -16,6 +16,10 @@ const TradeList: React.FC<TradeListProps> = ({ trades, onUpdate, onDelete, onAdd
   const [sortBy, setSortBy] = useState<'entryDate' | 'symbol' | 'pnl'>('entryDate');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [showImport, setShowImport] = useState(false);
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(20);
 
   const filteredTrades = trades
     .filter(trade => 
@@ -46,6 +50,27 @@ const TradeList: React.FC<TradeListProps> = ({ trades, onUpdate, onDelete, onAdd
       if (aValue > bValue) return sortOrder === 'asc' ? 1 : -1;
       return 0;
     });
+
+  // Pagination logic
+  const totalItems = filteredTrades.length;
+  const totalPages = Math.ceil(totalItems / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedTrades = filteredTrades.slice(startIndex, endIndex);
+
+  // Reset to first page when filter changes
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [filter, sortBy, sortOrder]);
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+  };
+
+  const handleItemsPerPageChange = (newItemsPerPage: number) => {
+    setItemsPerPage(newItemsPerPage);
+    setCurrentPage(1); // Reset to first page
+  };
 
   const formatDate = (date: Date) => {
     return date.toLocaleDateString('en-US', {
@@ -172,7 +197,7 @@ const TradeList: React.FC<TradeListProps> = ({ trades, onUpdate, onDelete, onAdd
                 </tr>
               </thead>
               <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                {filteredTrades.map((trade) => (
+                {paginatedTrades.map((trade) => (
                   <tr key={trade.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
@@ -237,6 +262,75 @@ const TradeList: React.FC<TradeListProps> = ({ trades, onUpdate, onDelete, onAdd
               </tbody>
             </table>
           </div>
+
+          {/* Pagination Controls */}
+          {filteredTrades.length > itemsPerPage && (
+            <div className="flex flex-col sm:flex-row justify-between items-center gap-4 px-6 py-3 bg-gray-50 dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700">
+              <div className="flex items-center gap-4">
+                <span className="text-sm text-gray-700 dark:text-gray-300">
+                  Showing {startIndex + 1} to {Math.min(endIndex, filteredTrades.length)} of {filteredTrades.length} trades
+                </span>
+                
+                <select
+                  value={itemsPerPage}
+                  onChange={(e) => setItemsPerPage(Number(e.target.value))}
+                  className="px-3 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+                >
+                  <option value={10}>10 per page</option>
+                  <option value={25}>25 per page</option>
+                  <option value={50}>50 per page</option>
+                  <option value={100}>100 per page</option>
+                </select>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                  disabled={currentPage === 1}
+                  className="px-3 py-1 text-sm bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-700"
+                >
+                  Previous
+                </button>
+
+                <div className="flex gap-1">
+                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                    let pageNum: number;
+                    if (totalPages <= 5) {
+                      pageNum = i + 1;
+                    } else if (currentPage <= 3) {
+                      pageNum = i + 1;
+                    } else if (currentPage >= totalPages - 2) {
+                      pageNum = totalPages - 4 + i;
+                    } else {
+                      pageNum = currentPage - 2 + i;
+                    }
+
+                    return (
+                      <button
+                        key={pageNum}
+                        onClick={() => setCurrentPage(pageNum)}
+                        className={`px-3 py-1 text-sm rounded ${
+                          currentPage === pageNum
+                            ? 'bg-blue-500 text-white'
+                            : 'bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
+                        }`}
+                      >
+                        {pageNum}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <button
+                  onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                  disabled={currentPage === totalPages}
+                  className="px-3 py-1 text-sm bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-700"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
