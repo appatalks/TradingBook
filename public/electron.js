@@ -2,7 +2,6 @@ const { app, BrowserWindow, Menu, ipcMain, dialog } = require('electron');
 const path = require('path');
 const isDev = require('electron-is-dev');
 const fs = require('fs');
-const os = require('os');
 const http = require('http');
 const url = require('url');
 const DatabaseManager = require('../src/database/Database');

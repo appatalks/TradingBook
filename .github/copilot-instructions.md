@@ -162,14 +162,27 @@ npm run electron-dev     # Full development mode
 ### Production
 ```bash
 npm run build           # Build React app
-npm run build-appimage  # Create Linux AppImage
+npm run build-appimage  # Create optimized Linux AppImage (~113MB)
 ```
 
+### AppImage Optimizations Applied
+- Dependencies moved to devDependencies for smaller bundle
+- Unused dependencies removed (date-fns, electron-store)
+- Locale optimization (English, Ukrainian, European languages only)
+- Minimal compression for faster startup times
+- Source maps excluded from production build
+
 ### AppImage Requirements
-- Ensure all native dependencies are bundled
+- Clean install dependencies before building: `rm -rf node_modules && npm install`
 - Test on clean Linux systems
-- Verify file permissions are correct
-- Include all required shared libraries
+- Verify file permissions are correct: `chmod +x dist/*.AppImage`
+- Final size optimized to ~113MB (down from 160MB)
+
+### Build Process
+1. Remove old artifacts: `rm -rf dist/`
+2. Build React app: `npm run build`
+3. Package Electron app: `electron-builder --linux AppImage`
+4. Test AppImage: `./dist/TradingBook-*.AppImage`
 
 ## Common Patterns
 

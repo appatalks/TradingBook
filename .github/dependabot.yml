@@ -17,18 +17,22 @@ updates:
           - "electron*"
           - "better-sqlite3"
           - "chart.js"
-          - "date-fns"
+          - "electron-is-dev"
         update-types:
           - "minor"
           - "patch"
       development-dependencies:
         patterns:
           - "@types/*"
-          - "@testing-library/*"
           - "typescript"
           - "tailwindcss"
           - "postcss"
           - "autoprefixer"
+          - "react-scripts"
+          - "electron-builder"
+          - "electron-rebuild"
+          - "concurrently"
+          - "wait-on"
         update-types:
           - "minor"
           - "patch"
