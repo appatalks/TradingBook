@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router';
 import { Trade } from '../types/Trade';
 import CSVImport from './CSVImport';
 
