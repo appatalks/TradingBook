@@ -15,16 +15,16 @@ A comprehensive, open-source trading journal application built with Electron and
     <img src="https://raw.githubusercontent.com/appatalks/TradingBook/main/assets/add-trade.png" alt="Add Trade" width="200" style="margin: 5px;">
   </a>
   <a href="https://raw.githubusercontent.com/appatalks/TradingBook/main/assets/trades.png">
-    <img src="https://raw.githubusercontent.com/appatalks/TradingBook/main/assets/trades.png" alt="Trades List" width="200" style="margin: 5px;">
+    <img src="https://raw.githubusercontent.com/appatalks/TradingBook/main/assets/trades.png" alt="Trades List" width="175" style="margin: 5px;">
   </a>
   <a href="https://raw.githubusercontent.com/appatalks/TradingBook/main/assets/analytics.png">
-    <img src="https://raw.githubusercontent.com/appatalks/TradingBook/main/assets/analytics.png" alt="Analytics" width="200" style="margin: 5px;">
+    <img src="https://raw.githubusercontent.com/appatalks/TradingBook/main/assets/analytics.png" alt="Analytics" width="`75" style="margin: 5px;">
   </a>
   <a href="https://raw.githubusercontent.com/appatalks/TradingBook/main/assets/summary.png">
-    <img src="https://raw.githubusercontent.com/appatalks/TradingBook/main/assets/summary.png" alt="Summary" width="200" style="margin: 5px;">
+    <img src="https://raw.githubusercontent.com/appatalks/TradingBook/main/assets/summary.png" alt="Summary" width="`75" style="margin: 5px;">
   </a>
   <a href="https://raw.githubusercontent.com/appatalks/TradingBook/main/assets/settings.png">
-    <img src="https://raw.githubusercontent.com/appatalks/TradingBook/main/assets/settings.png" alt="Settings" width="200" style="margin: 5px;">
+    <img src="https://raw.githubusercontent.com/appatalks/TradingBook/main/assets/settings.png" alt="Settings" width="`75" style="margin: 5px;">
   </a>
 </div>
 
