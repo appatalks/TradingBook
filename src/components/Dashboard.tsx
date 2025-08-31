@@ -135,7 +135,7 @@ const Dashboard: React.FC<DashboardProps> = ({ trades }) => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* P&L Calendar */}
         <div className="lg:col-span-2">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
                 P&L Calendar
@@ -178,7 +178,7 @@ const Dashboard: React.FC<DashboardProps> = ({ trades }) => {
 
         {/* Recent Trades */}
         <div>
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
             <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
               Recent Trades
             </h2>
@@ -220,7 +220,7 @@ const Dashboard: React.FC<DashboardProps> = ({ trades }) => {
                     <h4 className="font-medium mb-2">Trades ({dayTrades.length}):</h4>
                     <div className="space-y-2">
                       {dayTrades.map((trade) => (
-                        <div key={`trade-${trade.id}`} className="text-sm bg-gray-50 dark:bg-gray-700 p-2 rounded">
+                        <div key={`trade-${trade.id}`} className="text-sm bg-gray-50 dark:bg-gray-700 p-2 rounded-sm">
                           <div className="flex justify-between items-center">
                             <span className="font-medium">
                               {trade.symbol} {trade.exitPrice ? 

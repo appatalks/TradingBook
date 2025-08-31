@@ -202,7 +202,7 @@ const Settings: React.FC<SettingsProps> = ({ darkMode, onToggleDarkMode }) => {
       ) : (
         <>
           {/* General Settings */}
-          <div className="bg-white dark:bg-gray-800 shadow rounded-lg">
+          <div className="bg-white dark:bg-gray-800 shadow-sm rounded-lg">
             <div className="p-6">
               <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">General</h2>
               <div className="space-y-4">
@@ -238,7 +238,7 @@ const Settings: React.FC<SettingsProps> = ({ darkMode, onToggleDarkMode }) => {
                 step="0.01"
                 value={settings.defaultCommission}
                 onChange={(e) => setSettings(prev => ({ ...prev, defaultCommission: e.target.value }))}
-                className="w-32 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                className="w-32 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-hidden focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
               />
             </div>
 
@@ -249,7 +249,7 @@ const Settings: React.FC<SettingsProps> = ({ darkMode, onToggleDarkMode }) => {
               <select
                 value={settings.currency}
                 onChange={(e) => setSettings(prev => ({ ...prev, currency: e.target.value }))}
-                className="w-32 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                className="w-32 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-hidden focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
               >
                 <option value="USD">USD</option>
                 <option value="EUR">EUR</option>
@@ -266,7 +266,7 @@ const Settings: React.FC<SettingsProps> = ({ darkMode, onToggleDarkMode }) => {
               <select
                 value={settings.timezone}
                 onChange={(e) => setSettings(prev => ({ ...prev, timezone: e.target.value }))}
-                className="w-64 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                className="w-64 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-hidden focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
               >
                 <option value="America/New_York">Eastern Time</option>
                 <option value="America/Chicago">Central Time</option>
@@ -283,7 +283,7 @@ const Settings: React.FC<SettingsProps> = ({ darkMode, onToggleDarkMode }) => {
       </div>
 
       {/* Trading Settings */}
-      <div className="bg-white dark:bg-gray-800 shadow rounded-lg">
+      <div className="bg-white dark:bg-gray-800 shadow-sm rounded-lg">
         <div className="p-6">
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">Trading</h2>
           <div className="space-y-4">
@@ -337,7 +337,7 @@ const Settings: React.FC<SettingsProps> = ({ darkMode, onToggleDarkMode }) => {
       </div>
 
       {/* Data Management */}
-      <div className="bg-white dark:bg-gray-800 shadow rounded-lg">
+      <div className="bg-white dark:bg-gray-800 shadow-sm rounded-lg">
         <div className="p-6">
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">Data Management</h2>
           <div className="space-y-4">
@@ -348,7 +348,7 @@ const Settings: React.FC<SettingsProps> = ({ darkMode, onToggleDarkMode }) => {
               <select
                 value={settings.exportFormat}
                 onChange={(e) => setSettings(prev => ({ ...prev, exportFormat: e.target.value }))}
-                className="w-32 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                className="w-32 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-hidden focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
               >
                 <option value="CSV">CSV</option>
                 <option value="JSON">JSON</option>
@@ -359,19 +359,19 @@ const Settings: React.FC<SettingsProps> = ({ darkMode, onToggleDarkMode }) => {
             <div className="flex space-x-4">
               <button
                 onClick={handleExportData}
-                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-hidden focus:ring-2 focus:ring-blue-500"
               >
                 Export All Data
               </button>
               <button
                 onClick={handleImportData}
-                className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500"
+                className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-hidden focus:ring-2 focus:ring-gray-500"
               >
                 Import Data
               </button>
               <button
                 onClick={handleMatchPnL}
-                className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500"
+                className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-hidden focus:ring-2 focus:ring-green-500"
               >
                 Match P&L
               </button>
@@ -381,7 +381,7 @@ const Settings: React.FC<SettingsProps> = ({ darkMode, onToggleDarkMode }) => {
       </div>
 
       {/* Database Info */}
-      <div className="bg-white dark:bg-gray-800 shadow rounded-lg">
+      <div className="bg-white dark:bg-gray-800 shadow-sm rounded-lg">
         <div className="p-6">
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">Database Information</h2>
           <div className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
@@ -399,19 +399,19 @@ const Settings: React.FC<SettingsProps> = ({ darkMode, onToggleDarkMode }) => {
           <div className="mt-4 flex space-x-3">
             <button
               onClick={handleBackupDatabase}
-              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-hidden focus:ring-2 focus:ring-blue-500"
             >
               Create Backup
             </button>
             <button
               onClick={handleRestoreDatabase}
-              className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500"
+              className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-hidden focus:ring-2 focus:ring-gray-500"
             >
               Restore from Backup
             </button>
             <button
               onClick={() => setShowPurgeDialog(true)}
-              className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
+              className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 focus:outline-hidden focus:ring-2 focus:ring-red-500"
             >
               Purge Database
             </button>
@@ -424,14 +424,14 @@ const Settings: React.FC<SettingsProps> = ({ darkMode, onToggleDarkMode }) => {
         <button
           onClick={handleSave}
           disabled={isSaving}
-          className="save-settings-btn px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          className="save-settings-btn px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-hidden focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
           {isSaving ? 'Saving...' : 'Save Settings'}
         </button>
       </div>
 
       {/* About */}
-      <div className="bg-white dark:bg-gray-800 shadow rounded-lg">
+      <div className="bg-white dark:bg-gray-800 shadow-sm rounded-lg">
         <div className="p-6">
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">About TradingBook</h2>
           <div className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
@@ -458,7 +458,7 @@ const Settings: React.FC<SettingsProps> = ({ darkMode, onToggleDarkMode }) => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4">
             <div className="flex items-center mb-4">
-              <div className="flex-shrink-0">
+              <div className="shrink-0">
                 <div className="w-10 h-10 bg-red-100 dark:bg-red-900 rounded-full flex items-center justify-center">
                   <svg className="w-6 h-6 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
@@ -493,13 +493,13 @@ const Settings: React.FC<SettingsProps> = ({ darkMode, onToggleDarkMode }) => {
             <div className="flex space-x-3">
               <button
                 onClick={() => setShowPurgeDialog(false)}
-                className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500"
+                className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-hidden focus:ring-2 focus:ring-gray-500"
               >
                 Cancel
               </button>
               <button
                 onClick={handlePurgeDatabase}
-                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
+                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 focus:outline-hidden focus:ring-2 focus:ring-red-500"
               >
                 Yes, Purge Database
               </button>

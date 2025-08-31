@@ -54,7 +54,7 @@ const RecentTradesWidget: React.FC<RecentTradesWidgetProps> = ({ trades, onSymbo
               }`}>
                 {trade.side}
               </span>
-              <span className="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">
+              <span className="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded-sm">
                 {trade.assetType}
               </span>
             </div>
@@ -77,7 +77,7 @@ const RecentTradesWidget: React.FC<RecentTradesWidgetProps> = ({ trades, onSymbo
 
           {trade.strategy && (
             <div className="mt-2">
-              <span className="text-xs bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400 px-2 py-1 rounded">
+              <span className="text-xs bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400 px-2 py-1 rounded-sm">
                 {trade.strategy}
               </span>
             </div>

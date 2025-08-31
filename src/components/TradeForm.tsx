@@ -166,7 +166,7 @@ const TradeForm: React.FC<TradeFormProps> = ({ trades = [], onSubmit, settings }
         </button>
       </div>
 
-      <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+      <div className="bg-white dark:bg-gray-800 shadow-sm rounded-lg p-6">
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Basic Trade Info */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -178,7 +178,7 @@ const TradeForm: React.FC<TradeFormProps> = ({ trades = [], onSubmit, settings }
                 type="text"
                 value={formData.symbol}
                 onChange={(e) => handleInputChange('symbol', e.target.value)}
-                className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white ${
+                className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-xs focus:outline-hidden focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white ${
                   errors.symbol ? 'border-red-300 dark:border-red-600' : 'border-gray-300 dark:border-gray-600'
                 }`}
                 placeholder="AAPL"
@@ -193,7 +193,7 @@ const TradeForm: React.FC<TradeFormProps> = ({ trades = [], onSubmit, settings }
               <select
                 value={formData.side}
                 onChange={(e) => handleInputChange('side', e.target.value)}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-xs focus:outline-hidden focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
               >
                 <option value="BUY">BUY</option>
                 <option value="SELL">SELL</option>
@@ -209,7 +209,7 @@ const TradeForm: React.FC<TradeFormProps> = ({ trades = [], onSubmit, settings }
               <select
                 value={formData.assetType}
                 onChange={(e) => handleInputChange('assetType', e.target.value)}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-xs focus:outline-hidden focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
               >
                 <option value="STOCK">Stock</option>
                 <option value="OPTION">Option</option>
@@ -227,7 +227,7 @@ const TradeForm: React.FC<TradeFormProps> = ({ trades = [], onSubmit, settings }
                 step="0.01"
                 value={formData.quantity}
                 onChange={(e) => handleInputChange('quantity', e.target.value)}
-                className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white ${
+                className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-xs focus:outline-hidden focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white ${
                   errors.quantity ? 'border-red-300 dark:border-red-600' : 'border-gray-300 dark:border-gray-600'
                 }`}
               />
@@ -243,7 +243,7 @@ const TradeForm: React.FC<TradeFormProps> = ({ trades = [], onSubmit, settings }
                 step="0.01"
                 value={formData.entryPrice}
                 onChange={(e) => handleInputChange('entryPrice', e.target.value)}
-                className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white ${
+                className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-xs focus:outline-hidden focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white ${
                   errors.entryPrice ? 'border-red-300 dark:border-red-600' : 'border-gray-300 dark:border-gray-600'
                 }`}
               />
@@ -259,7 +259,7 @@ const TradeForm: React.FC<TradeFormProps> = ({ trades = [], onSubmit, settings }
                 step="0.01"
                 value={formData.exitPrice}
                 onChange={(e) => handleInputChange('exitPrice', e.target.value)}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-xs focus:outline-hidden focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
               />
             </div>
 
@@ -271,7 +271,7 @@ const TradeForm: React.FC<TradeFormProps> = ({ trades = [], onSubmit, settings }
                 type="datetime-local"
                 value={formData.entryDate}
                 onChange={(e) => handleInputChange('entryDate', e.target.value)}
-                className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white ${
+                className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-xs focus:outline-hidden focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white ${
                   errors.entryDate ? 'border-red-300 dark:border-red-600' : 'border-gray-300 dark:border-gray-600'
                 }`}
               />
@@ -286,7 +286,7 @@ const TradeForm: React.FC<TradeFormProps> = ({ trades = [], onSubmit, settings }
                 type="datetime-local"
                 value={formData.exitDate}
                 onChange={(e) => handleInputChange('exitDate', e.target.value)}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-xs focus:outline-hidden focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
               />
             </div>
 
@@ -299,7 +299,7 @@ const TradeForm: React.FC<TradeFormProps> = ({ trades = [], onSubmit, settings }
                 step="0.01"
                 value={formData.commission}
                 onChange={(e) => handleInputChange('commission', e.target.value)}
-                className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white ${
+                className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-xs focus:outline-hidden focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white ${
                   errors.commission ? 'border-red-300 dark:border-red-600' : 'border-gray-300 dark:border-gray-600'
                 }`}
                 placeholder="0.00"
@@ -315,7 +315,7 @@ const TradeForm: React.FC<TradeFormProps> = ({ trades = [], onSubmit, settings }
                 type="text"
                 value={formData.strategy}
                 onChange={(e) => handleInputChange('strategy', e.target.value)}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-xs focus:outline-hidden focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
                 placeholder="Momentum"
               />
             </div>
@@ -333,7 +333,7 @@ const TradeForm: React.FC<TradeFormProps> = ({ trades = [], onSubmit, settings }
                   <select
                     value={formData.optionType}
                     onChange={(e) => handleInputChange('optionType', e.target.value)}
-                    className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white ${
+                    className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-xs focus:outline-hidden focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white ${
                       errors.optionType ? 'border-red-300 dark:border-red-600' : 'border-gray-300 dark:border-gray-600'
                     }`}
                   >
@@ -353,7 +353,7 @@ const TradeForm: React.FC<TradeFormProps> = ({ trades = [], onSubmit, settings }
                     step="0.01"
                     value={formData.strikePrice}
                     onChange={(e) => handleInputChange('strikePrice', e.target.value)}
-                    className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white ${
+                    className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-xs focus:outline-hidden focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white ${
                       errors.strikePrice ? 'border-red-300 dark:border-red-600' : 'border-gray-300 dark:border-gray-600'
                     }`}
                   />
@@ -368,7 +368,7 @@ const TradeForm: React.FC<TradeFormProps> = ({ trades = [], onSubmit, settings }
                     type="date"
                     value={formData.expirationDate}
                     onChange={(e) => handleInputChange('expirationDate', e.target.value)}
-                    className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white ${
+                    className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-xs focus:outline-hidden focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white ${
                       errors.expirationDate ? 'border-red-300 dark:border-red-600' : 'border-gray-300 dark:border-gray-600'
                     }`}
                   />
@@ -387,7 +387,7 @@ const TradeForm: React.FC<TradeFormProps> = ({ trades = [], onSubmit, settings }
               value={formData.notes}
               onChange={(e) => handleInputChange('notes', e.target.value)}
               rows={3}
-              className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-xs focus:outline-hidden focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
               placeholder="Trade notes..."
             />
           </div>
@@ -415,7 +415,7 @@ const TradeForm: React.FC<TradeFormProps> = ({ trades = [], onSubmit, settings }
             </button>
             <button
               type="submit"
-              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-hidden focus:ring-2 focus:ring-blue-500"
             >
               {isEdit ? 'Update Trade' : 'Save Trade'}
             </button>
