@@ -1,6 +1,6 @@
 # TradingBook - Advanced Trading Journal
 
-A comprehensive, open-source trading journal application built with Electron and React. TradingBook provides all the features of premium trading journals like TradingVue, but completely free and with full data ownership.
+A comprehensive, open-source trading journal application built with Electron and React. TradingBook provides all the features of premium trading journals like Tradervue, but completely free and with full data ownership.
 
 ## 📸 Screenshot
 
@@ -54,9 +54,27 @@ A comprehensive, open-source trading journal application built with Electron and
 3. Click on any day to see trade details
 4. Navigate between months and years
 
-## 📊 TradingBook vs. TradingVue
+## � Advanced Usage
 
-| Feature | TradingBook | TradingVue |
+### Match P&L Feature
+The "Match P&L" button in Settings is used to automatically pair buy and sell trades to calculate profits and losses. This is especially useful when:
+
+- **Importing CSV data** from brokers that list buy and sell orders as separate entries
+- **Managing partial fills** where large orders were executed in multiple smaller trades  
+- **Calculating accurate P&L** for complex trading scenarios with multiple entry/exit points
+
+**How it works:**
+- Uses FIFO (First In, First Out) matching algorithm
+- Pairs buy orders with sell orders for the same symbol
+- Automatically calculates P&L including commissions
+- Handles partial fills by creating remainder trades
+- Creates complete trade records with entry/exit prices and dates
+
+**When to use:** After CSV imports or when you have unmatched buy/sell pairs that need P&L calculation.
+
+## �📊 TradingBook vs. Tradervue
+
+| Feature | TradingBook | Tradervue |
 |---------|------------|------------|
 | **Price** | Free | $49+/month |
 | **Data Ownership** | You own it | Cloud-hosted |
