@@ -130,7 +130,7 @@ function getDefaultSettings() {
     autoCalculatePnL: true,
     exportFormat: 'CSV',
     darkMode: false,
-    debugMode: true // Enable debug logging by default
+    debugMode: true // Enable debug logging by default for troubleshooting
   };
 }
 

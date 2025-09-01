@@ -240,7 +240,6 @@ class DatabaseManager {
   getPerformanceMetrics(dateRange) {
     return new Promise((resolve, reject) => {
       try {
-        debugLogger.log('Database getPerformanceMetrics called with:', dateRange);
         let sql = `
           SELECT 
             COUNT(*) as total_trades,
@@ -263,7 +262,6 @@ class DatabaseManager {
             ? dateRange.startDate.toISOString() 
             : dateRange.startDate;
           params.push(startDate);
-          debugLogger.log('Start date parameter:', startDate);
         }
         if (dateRange.endDate) {
           sql += ' AND DATE(entry_date) <= DATE(?)';
@@ -272,16 +270,10 @@ class DatabaseManager {
             ? dateRange.endDate.toISOString() 
             : dateRange.endDate;
           params.push(endDate);
-          debugLogger.log('End date parameter:', endDate);
         }
-
-        debugLogger.log('Final SQL:', sql);
-        debugLogger.log('Parameters:', params);
 
         const stmt = this.db.prepare(sql);
         const row = stmt.get(...params);
-        
-        debugLogger.log('Raw SQL result:', row);
         
         const metrics = {
           totalTrades: row.total_trades || 0,
@@ -329,7 +321,6 @@ class DatabaseManager {
           metrics.topLosers = [];
         }
         
-        debugLogger.log('Processed metrics:', metrics);
         resolve(metrics);
       } catch (err) {
         console.error('Error in getPerformanceMetrics:', err);
