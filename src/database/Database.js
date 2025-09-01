@@ -66,14 +66,27 @@ class DatabaseManager {
         `);
         
         // Convert undefined values to null and handle Date objects
+        // Store dates without UTC conversion to maintain local timezone accuracy
+        const formatDateForStorage = (date) => {
+          if (!(date instanceof Date)) return date;
+          // Format as YYYY-MM-DDTHH:mm:ss.000Z but keep local time
+          const year = date.getFullYear();
+          const month = String(date.getMonth() + 1).padStart(2, '0');
+          const day = String(date.getDate()).padStart(2, '0');
+          const hours = String(date.getHours()).padStart(2, '0');
+          const minutes = String(date.getMinutes()).padStart(2, '0');
+          const seconds = String(date.getSeconds()).padStart(2, '0');
+          return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}.000Z`;
+        };
+        
         const result = stmt.run(
           trade.symbol,
           trade.side,
           trade.quantity,
           trade.entryPrice,
           trade.exitPrice ?? null,
-          trade.entryDate instanceof Date ? trade.entryDate.toISOString() : trade.entryDate,
-          trade.exitDate instanceof Date ? trade.exitDate.toISOString() : (trade.exitDate ?? null),
+          formatDateForStorage(trade.entryDate),
+          trade.exitDate ? formatDateForStorage(trade.exitDate) : null,
           trade.pnl ?? null,
           trade.commission ?? 0,
           trade.strategy ?? null,
@@ -83,7 +96,7 @@ class DatabaseManager {
           trade.assetType,
           trade.optionType ?? null,
           trade.strikePrice ?? null,
-          trade.expirationDate instanceof Date ? trade.expirationDate.toISOString() : (trade.expirationDate ?? null)
+          trade.expirationDate ? formatDateForStorage(trade.expirationDate) : null
         );
         
         resolve({ id: result.lastInsertRowid, ...trade });
@@ -176,6 +189,18 @@ class DatabaseManager {
   updateTrade(id, updates) {
     return new Promise((resolve, reject) => {
       try {
+        // Date formatting helper (same as in saveTrade)
+        const formatDateForStorage = (date) => {
+          if (!(date instanceof Date)) return date;
+          const year = date.getFullYear();
+          const month = String(date.getMonth() + 1).padStart(2, '0');
+          const day = String(date.getDate()).padStart(2, '0');
+          const hours = String(date.getHours()).padStart(2, '0');
+          const minutes = String(date.getMinutes()).padStart(2, '0');
+          const seconds = String(date.getSeconds()).padStart(2, '0');
+          return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}.000Z`;
+        };
+        
         const fields = [];
         const params = [];
 
@@ -185,13 +210,13 @@ class DatabaseManager {
             params.push(JSON.stringify(updates[key]));
           } else if (key === 'entryDate') {
             fields.push('entry_date = ?');
-            params.push(updates[key] instanceof Date ? updates[key].toISOString() : updates[key]);
+            params.push(formatDateForStorage(updates[key]));
           } else if (key === 'exitDate') {
             fields.push('exit_date = ?');
-            params.push(updates[key] instanceof Date ? updates[key].toISOString() : (updates[key] ?? null));
+            params.push(updates[key] ? formatDateForStorage(updates[key]) : null);
           } else if (key === 'expirationDate') {
             fields.push('expiration_date = ?');
-            params.push(updates[key] instanceof Date ? updates[key].toISOString() : (updates[key] ?? null));
+            params.push(updates[key] ? formatDateForStorage(updates[key]) : null);
           } else {
             const dbField = key.replace(/([A-Z])/g, '_$1').toLowerCase();
             fields.push(`${dbField} = ?`);
