@@ -248,14 +248,6 @@ async function createWindow() {
       label: 'File',
       submenu: [
         {
-          label: 'Export Data',
-          accelerator: 'CmdOrCtrl+E',
-          click: () => {
-            mainWindow.webContents.send('export-data');
-          }
-        },
-        { type: 'separator' },
-        {
           label: 'Exit',
           accelerator: process.platform === 'darwin' ? 'Cmd+Q' : 'Ctrl+Q',
           click: () => {
