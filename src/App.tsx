@@ -26,13 +26,7 @@ const App: React.FC = () => {
         setDarkMode(prev => !prev);
       });
       
-      // Listen for database refresh events to avoid window reloads
-      const handleDatabasePurged = () => {
-        console.log('Database purged - refreshing data...');
-        setTrades([]);
-        loadTrades();
-      };
-      
+      // Listen for database refresh events for other operations (restore, errors)
       const handleDatabaseRestored = () => {
         console.log('Database restored - refreshing data...');
         loadTrades();
@@ -44,10 +38,18 @@ const App: React.FC = () => {
         loadTrades();
       };
       
-      // Add event listeners
-      window.electronAPI.onDatabasePurged?.(handleDatabasePurged);
-      window.electronAPI.onDatabaseRestored?.(handleDatabaseRestored);
-      window.electronAPI.onDatabaseError?.(handleDatabaseError);
+      // Add event listeners (purge now uses window reload)
+      console.log('Setting up database event listeners...');
+      
+      if (window.electronAPI.onDatabaseRestored) {
+        console.log('Setting up onDatabaseRestored listener');
+        window.electronAPI.onDatabaseRestored(handleDatabaseRestored);
+      }
+      
+      if (window.electronAPI.onDatabaseError) {
+        console.log('Setting up onDatabaseError listener');
+        window.electronAPI.onDatabaseError(handleDatabaseError);
+      }
       
       return () => {
         // Cleanup listeners if available

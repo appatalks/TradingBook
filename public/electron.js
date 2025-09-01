@@ -402,11 +402,11 @@ ipcMain.handle('save-trades-bulk', async (event, trades) => {
       }
     }
     
-    // Send single refresh signal at the end
+    // Reload window after bulk import to refresh all views
     setTimeout(() => {
-      debugLogger.log('Sending single database refresh signal after bulk import...');
+      debugLogger.log('Reloading window after bulk import to refresh all data...');
       if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send('database-restored');
+        mainWindow.reload();
       }
     }, 500);
     
@@ -654,11 +654,11 @@ ipcMain.handle('purge-database', async (event) => {
     
     debugLogger.log('Complete database purge successful - all data cleared');
     
-    // Send refresh signal to React app instead of reloading window
+    // Reload the window to refresh all React components with empty database
     setTimeout(() => {
-      debugLogger.log('Sending database-purged signal to React app...');
+      debugLogger.log('Reloading window to refresh React app with empty database...');
       if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send('database-purged');
+        mainWindow.reload();
       }
     }, 500);
     
@@ -1086,11 +1086,11 @@ ipcMain.handle('import-csv', async (event) => {
         await matchAndCalculatePnL();
         debugLogger.log('Auto P&L matching completed after CSV import');
         
-        // Send refresh signal to React app so analytics get updated
+        // Reload window to refresh all views with new data
         setTimeout(() => {
-          debugLogger.log('Sending database refresh signal after CSV import P&L matching...');
+          debugLogger.log('Reloading window after CSV import P&L matching to refresh all data...');
           if (mainWindow && !mainWindow.isDestroyed()) {
-            mainWindow.webContents.send('database-restored');
+            mainWindow.reload();
           }
         }, 500);
       } catch (matchError) {
@@ -1119,11 +1119,11 @@ ipcMain.handle('match-pnl', async (event) => {
     await matchAndCalculatePnL();
     debugLogger.log('P&L matching completed successfully');
     
-    // Send refresh signal to React app so analytics get updated
+    // Reload window to refresh all views with updated P&L data
     setTimeout(() => {
-      debugLogger.log('Sending database refresh signal after P&L matching...');
+      debugLogger.log('Reloading window after P&L matching to refresh all data...');
       if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send('database-restored');
+        mainWindow.reload();
       }
     }, 500);
     

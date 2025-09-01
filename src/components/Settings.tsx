@@ -195,7 +195,7 @@ const Settings: React.FC<SettingsProps> = ({ darkMode, onToggleDarkMode }) => {
         if (result.success) {
           showNotification(`Database purged successfully! All trade data has been permanently deleted.
 
-The application will now restart with an empty database.`, 'success');
+The application will reload momentarily to refresh all data.`, 'success');
           // The main process will handle the database refresh via IPC events
         } else {
           showNotification(`Purge failed: ${result.error}`, 'error');
