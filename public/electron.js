@@ -324,6 +324,7 @@ function initDatabase() {
 ipcMain.handle('save-trade', async (event, trade) => {
   try {
     const result = await db.saveTrade(trade);
+    let pnlMatchingRan = false;
     
     // Auto-run P&L matching if this trade could potentially match with existing trades
     // Only for BUY/SELL trades (not options or other complex instruments)
@@ -341,14 +342,7 @@ ipcMain.handle('save-trade', async (event, trade) => {
           debugLogger.log(`Found ${buys} buys and ${sells} sells for ${trade.symbol} - auto-running P&L matching...`);
           await matchAndCalculatePnL();
           debugLogger.log('Auto P&L matching completed after trade save');
-          
-          // Send refresh signal to React app so analytics get updated
-          setTimeout(() => {
-            debugLogger.log('Sending database refresh signal after auto P&L matching...');
-            if (mainWindow && !mainWindow.isDestroyed()) {
-              mainWindow.webContents.send('database-restored');
-            }
-          }, 500);
+          pnlMatchingRan = true;
         } else {
           debugLogger.log(`No matching opportunities for ${trade.symbol} (${buys} buys, ${sells} sells)`);
         }
@@ -356,6 +350,14 @@ ipcMain.handle('save-trade', async (event, trade) => {
         console.error('Auto P&L matching failed after trade save:', matchError);
       }
     }
+    
+    // Always send refresh signal to update Dashboard analytics, regardless of P&L matching
+    setTimeout(() => {
+      debugLogger.log(`Sending database refresh signal after trade save${pnlMatchingRan ? ' (with P&L matching)' : ''}...`);
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('database-restored');
+      }
+    }, pnlMatchingRan ? 500 : 100);
     
     return result;
   } catch (error) {

@@ -27,6 +27,27 @@ const Dashboard: React.FC<DashboardProps> = ({ trades }) => {
     loadCalendarData();
   }, [trades, selectedMonth, selectedYear]);
 
+  // Listen for database refresh events to update metrics immediately
+  useEffect(() => {
+    if (window.electronAPI?.onDatabaseRestored) {
+      const handleDatabaseRefresh = () => {
+        console.log('Dashboard: Database refresh detected, reloading metrics and calendar...');
+        loadMetrics();
+        loadCalendarData();
+      };
+      
+      window.electronAPI.onDatabaseRestored(handleDatabaseRefresh);
+      
+      // Cleanup function
+      return () => {
+        // Remove listener if cleanup function is available
+        if (window.electronAPI?.removeDatabaseListeners) {
+          window.electronAPI.removeDatabaseListeners();
+        }
+      };
+    }
+  }, [selectedMonth, selectedYear]);
+
   const loadMetrics = async () => {
     try {
       if (window.electronAPI) {
