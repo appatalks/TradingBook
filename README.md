@@ -2,13 +2,13 @@
 
 A comprehensive, open-source trading journal application built with Electron and React. TradingBook provides all the features of premium trading journals like Tradervue, but completely free and with full data ownership.
 
-## 📸 
+## 📸 Screenshots
 
 ![TradingBook Interface](https://raw.githubusercontent.com/appatalks/TradingBook/main/assets/tradingbook-screenshot.png)
 
 *TradingBook's clean and intuitive interface showing the dashboard with P&L calendar and trade analytics*
 
-### 📸 More
+### More Screenshots
 
 <div align="center">
   <a href="https://raw.githubusercontent.com/appatalks/TradingBook/main/assets/add-trade.png">
@@ -18,7 +18,7 @@ A comprehensive, open-source trading journal application built with Electron and
     <img src="https://raw.githubusercontent.com/appatalks/TradingBook/main/assets/trades.png" alt="Trades List" width="175" style="margin: 5px;">
   </a>
   <a href="https://raw.githubusercontent.com/appatalks/TradingBook/main/assets/analytics.png">
-    <img src="https://raw.githubusercontent.com/appatalks/TradingBook/main/assets/analytics.png" alt="Analytics" width="175" style="margin: 5px;"> <p></p>
+    <img src="https://raw.githubusercontent.com/appatalks/TradingBook/main/assets/analytics.png" alt="Analytics" width="175" style="margin: 5px;">
   </a>
   <a href="https://raw.githubusercontent.com/appatalks/TradingBook/main/assets/summary.png">
     <img src="https://raw.githubusercontent.com/appatalks/TradingBook/main/assets/summary.png" alt="Summary" width="175" style="margin: 5px;">
@@ -40,17 +40,22 @@ A comprehensive, open-source trading journal application built with Electron and
 - ✅ **Data Privacy** - Your data stays on your machine
 - ✅ **Offline First** - No internet required
 - ✅ **Open Source** - Full transparency and customization
-- ✅ **Cross Platform** - Works on Linux, Windows, macOS
+- ✅ **Cross Platform** - Linux AppImage & Windows EXE (portable)
+- ✅ **No Installation** - Portable executables, no admin rights needed
 - ✅ **No Data Limits** - Track unlimited trades
 
 ## 📋 Quick Start
 
-### Installation Options
+### Download & Run (No Installation Required!)
 
-#### Option 1: Download AppImage (Recommended)
-1. Download the latest AppImage from [Releases](https://github.com/appatalks/TradingBook/releases)
-2. Make it executable: `chmod +x TradingBook-*.AppImage`
-3. Run: `./TradingBook-*.AppImage`
+#### 🐧 Linux AppImage
+1. Download `TradingBook-1.0.0.AppImage` from [Releases](https://github.com/appatalks/TradingBook/releases)
+2. Make executable: `chmod +x TradingBook-1.0.0.AppImage`
+3. Run: `./TradingBook-1.0.0.AppImage`
+
+#### 🪟 Windows Portable EXE
+1. Download `TradingBook 1.0.0.exe` from [Releases](https://github.com/appatalks/TradingBook/releases)
+2. Double-click to run - that's it!
 
 ## 💡 Usage Guide
 
@@ -72,7 +77,7 @@ A comprehensive, open-source trading journal application built with Electron and
 3. Click on any day to see trade details
 4. Navigate between months and years
 
-## � Advanced Usage
+## 🔧 Advanced Usage
 
 ### Match P&L Feature
 The "Match P&L" button in Settings is used to automatically pair buy and sell trades to calculate profits and losses. This is especially useful when:
@@ -90,13 +95,15 @@ The "Match P&L" button in Settings is used to automatically pair buy and sell tr
 
 **When to use:** After CSV imports or when you have unmatched buy/sell pairs that need P&L calculation.
 
-## �📊 TradingBook vs. Tradervue
+## 📊 TradingBook vs. Tradervue
 
 | Feature | TradingBook | Tradervue |
 |---------|------------|------------|
 | **Price** | Free | $49+/month |
+| **Platforms** | Linux, Windows (portable) | Web-based |
 | **Data Ownership** | You own it | Cloud-hosted |
 | **Internet Required** | No | Yes |
+| **Installation** | None (portable) | Browser required |
 | **Trade Limits** | Unlimited | Plan-dependent |
 | **Open Source** | Yes | No |
 | **Custom Analytics** | Extensible | Fixed |
@@ -111,7 +118,9 @@ MIT License - see [LICENSE](LICENSE) for details.
 - **Local Storage**: All data stored locally in SQLite
 - **No Network Requests**: No data sent to external servers
 - **Open Source**: Code is fully auditable
+- **Portable**: No installation or registry modifications
+- **Self-Contained**: All dependencies bundled, no system changes
 
 ---
 
-📈
+📈 *Start tracking your trading performance today with TradingBook!*
