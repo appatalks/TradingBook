@@ -37,7 +37,10 @@
     "electron": "electron .",
     "electron-dev": "concurrently \"npm start\" \"wait-on http://localhost:3000 && electron .\"",
     "electron-build": "npm run build && electron-builder",
-    "build-appimage": "npm run build && electron-builder --linux AppImage"
+    "build-appimage": "npm run build && electron-builder --linux AppImage",
+    "build-windows": "npm run build && electron-builder --win dir",
+    "build-windows-portable": "npm run build && electron-builder --win portable",
+    "build-all": "npm run build && electron-builder --linux AppImage --win portable"
   },
   "dependencies": {
     "better-sqlite3": "^12.2.0",
@@ -117,6 +120,30 @@
     "linux": {
       "target": "AppImage",
       "category": "Office"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "dir",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "signAndEditExecutable": false,
+      "verifyUpdateCodeSignature": false
     }
   },
   "browserslist": {
