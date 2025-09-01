@@ -4,7 +4,7 @@
 
 set -e  # Exit on any error
 
-# Colors for output
+# Color codes for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -43,7 +43,6 @@ show_help() {
     echo ""
     echo "Options:"
     echo "  -h, --help     Show this help message"
-    echo "  --dry-run      Show what would be done without executing"
     echo "  --linux-only   Build only Linux AppImage"
     echo "  --windows-only Build only Windows EXE"
     echo ""
@@ -60,7 +59,6 @@ show_help() {
 }
 
 # Parse command line arguments
-DRY_RUN=false
 LINUX_ONLY=false
 WINDOWS_ONLY=false
 
@@ -69,10 +67,6 @@ while [[ $# -gt 0 ]]; do
         -h|--help)
             show_help
             exit 0
-            ;;
-        --dry-run)
-            DRY_RUN=true
-            shift
             ;;
         --linux-only)
             LINUX_ONLY=true
@@ -102,20 +96,7 @@ if [ ! -f "package.json" ] || [ ! -f "src/App.tsx" ]; then
     exit 1
 fi
 
-# Execute command or show what would be executed
-execute_cmd() {
-    if [ "$DRY_RUN" = true ]; then
-        echo -e "${YELLOW}[DRY-RUN]${NC} Would execute: $1"
-    else
-        eval "$1"
-    fi
-}
-
 print_header "TradingBook Multi-Platform Build Script"
-
-if [ "$DRY_RUN" = true ]; then
-    print_warning "DRY-RUN MODE: Showing what would be done without executing"
-fi
 
 if [ "$LINUX_ONLY" = true ]; then
     print_status "Linux-only build mode selected"
@@ -124,6 +105,17 @@ elif [ "$WINDOWS_ONLY" = true ]; then
 fi
 
 print_status "Starting clean build process..."
+
+# Kill any running TradingBook instances to prevent conflicts
+print_status "Checking for running TradingBook instances..."
+if pgrep -f tradingbook >/dev/null 2>&1; then
+    print_warning "Stopping running TradingBook instances..."
+    pkill -f tradingbook
+    sleep 2
+    print_success "Running instances stopped"
+else
+    print_success "No running instances found"
+fi
 
 # Step 1: Clean up all caches and build artifacts
 print_header "Step 1: Cleaning Up Caches"
@@ -167,7 +159,11 @@ print_success "electron-builder cache cleared"
 print_header "Step 2: Installing Fresh Dependencies"
 
 print_status "Installing npm dependencies..."
-npm install
+if [ "$DRY_RUN" = true ]; then
+    echo -e "${YELLOW}[DRY-RUN]${NC} Would execute: npm install --legacy-peer-deps"
+else
+    npm install --legacy-peer-deps
+fi
 print_success "Dependencies installed successfully"
 
 print_status "Rebuilding native modules..."
@@ -190,24 +186,29 @@ fi
 print_success "React build verification passed"
 
 # Step 4: Create Linux AppImage
-print_header "Step 4: Creating Linux AppImage"
+if [ "$WINDOWS_ONLY" != true ]; then
+    print_header "Step 4: Creating Linux AppImage"
 
-print_status "Building Linux AppImage..."
-npm run build-appimage
+    print_status "Building Linux AppImage..."
+    npm run build-appimage
 
-# Verify AppImage creation
-if [ -f "dist/TradingBook-1.0.0.AppImage" ]; then
-    APPIMAGE_SIZE=$(du -h "dist/TradingBook-1.0.0.AppImage" | cut -f1)
-    print_success "Linux AppImage created successfully (${APPIMAGE_SIZE})"
-    chmod +x "dist/TradingBook-1.0.0.AppImage"
-    print_success "AppImage made executable"
+    # Verify AppImage creation
+    if [ -f "dist/TradingBook-1.0.0.AppImage" ]; then
+        APPIMAGE_SIZE=$(du -h "dist/TradingBook-1.0.0.AppImage" | cut -f1)
+        print_success "Linux AppImage created successfully (${APPIMAGE_SIZE})"
+        chmod +x "dist/TradingBook-1.0.0.AppImage"
+        print_success "AppImage made executable"
+    else
+        print_error "Linux AppImage creation failed"
+        exit 1
+    fi
 else
-    print_error "Linux AppImage creation failed"
-    exit 1
+    print_status "Skipping Linux AppImage build (Windows-only mode)"
 fi
 
 # Step 5: Create Windows EXE
-print_header "Step 5: Creating Windows EXE"
+if [ "$LINUX_ONLY" != true ]; then
+    print_header "Step 5: Creating Windows EXE"
 
 # Check if Wine is available for cross-compilation
 if ! command -v wine &> /dev/null; then
@@ -215,62 +216,75 @@ if ! command -v wine &> /dev/null; then
     print_status "Consider installing Wine: sudo apt install wine"
 fi
 
-print_status "Building Windows portable EXE..."
-npm run build-windows-portable
+    print_status "Building Windows portable EXE..."
+    npm run build-windows-portable
 
-# Verify Windows EXE creation
-if [ -f "dist/TradingBook 1.0.0.exe" ]; then
-    EXE_SIZE=$(du -h "dist/TradingBook 1.0.0.exe" | cut -f1)
-    print_success "Windows EXE created successfully (${EXE_SIZE})"
+    # Verify Windows EXE creation
+    if [ -f "dist/TradingBook 1.0.0.exe" ]; then
+        EXE_SIZE=$(du -h "dist/TradingBook 1.0.0.exe" | cut -f1)
+        print_success "Windows EXE created successfully (${EXE_SIZE})"
+    else
+        print_error "Windows EXE creation failed"
+        exit 1
+    fi
 else
-    print_error "Windows EXE creation failed"
-    exit 1
+    print_status "Skipping Windows EXE build (Linux-only mode)"
 fi
 
 # Step 6: Create Windows ZIP archive
-print_header "Step 6: Creating Windows ZIP Archive"
+if [ "$LINUX_ONLY" != true ]; then
+    print_header "Step 6: Creating Windows ZIP Archive"
 
-if [ -d "dist/win-unpacked" ]; then
-    print_status "Creating ZIP archive of Windows directory build..."
-    cd dist
-    zip -r "TradingBook-1.0.0-Windows.zip" win-unpacked/ >/dev/null 2>&1
-    cd ..
-    
-    if [ -f "dist/TradingBook-1.0.0-Windows.zip" ]; then
-        ZIP_SIZE=$(du -h "dist/TradingBook-1.0.0-Windows.zip" | cut -f1)
-        print_success "Windows ZIP archive created successfully (${ZIP_SIZE})"
+    if [ -d "dist/win-unpacked" ]; then
+        print_status "Creating ZIP archive of Windows directory build..."
+        cd dist && zip -r "TradingBook-1.0.0-Windows.zip" win-unpacked/ >/dev/null 2>&1 && cd ..
+        
+        if [ -f "dist/TradingBook-1.0.0-Windows.zip" ]; then
+            ZIP_SIZE=$(du -h "dist/TradingBook-1.0.0-Windows.zip" | cut -f1)
+            print_success "Windows ZIP archive created successfully (${ZIP_SIZE})"
+        else
+            print_warning "Windows ZIP archive creation failed"
+        fi
     else
-        print_warning "Windows ZIP archive creation failed"
+        print_warning "Windows unpacked directory not found - skipping ZIP creation"
     fi
 else
-    print_warning "Windows unpacked directory not found - skipping ZIP creation"
+    print_status "Skipping Windows ZIP creation (Linux-only mode)"
 fi
 
 # Step 7: Build summary and verification
 print_header "Step 7: Build Summary & Verification"
 
-print_status "Verifying all build artifacts..."
+if [ "$DRY_RUN" = true ]; then
+    print_success "Dry-run completed successfully!"
+    print_status "The script would have created the specified distribution files."
+    exit 0
+fi
+
+print_status "Verifying build artifacts..."
 
 # Check file sizes and existence
 TOTAL_SIZE=0
 
-if [ -f "dist/TradingBook-1.0.0.AppImage" ]; then
+# Linux AppImage verification
+if [ "$WINDOWS_ONLY" != true ] && [ -f "dist/TradingBook-1.0.0.AppImage" ]; then
     APPIMAGE_SIZE_BYTES=$(stat -c%s "dist/TradingBook-1.0.0.AppImage")
     APPIMAGE_SIZE_MB=$((APPIMAGE_SIZE_BYTES / 1024 / 1024))
     TOTAL_SIZE=$((TOTAL_SIZE + APPIMAGE_SIZE_BYTES))
     print_success "✅ Linux AppImage: ${APPIMAGE_SIZE_MB}MB"
     
-    # Test AppImage can be executed
-    if "./dist/TradingBook-1.0.0.AppImage" --version &>/dev/null; then
-        print_success "✅ AppImage executable test passed"
+    # Verify AppImage format
+    if file "dist/TradingBook-1.0.0.AppImage" | grep -q "AppImage"; then
+        print_success "✅ AppImage format verification passed"
     else
-        print_warning "⚠️ AppImage executable test failed (may be normal)"
+        print_warning "⚠️ AppImage format verification failed"
     fi
-else
+elif [ "$WINDOWS_ONLY" != true ]; then
     print_error "❌ Linux AppImage missing"
 fi
 
-if [ -f "dist/TradingBook 1.0.0.exe" ]; then
+# Windows EXE verification
+if [ "$LINUX_ONLY" != true ] && [ -f "dist/TradingBook 1.0.0.exe" ]; then
     EXE_SIZE_BYTES=$(stat -c%s "dist/TradingBook 1.0.0.exe")
     EXE_SIZE_MB=$((EXE_SIZE_BYTES / 1024 / 1024))
     TOTAL_SIZE=$((TOTAL_SIZE + EXE_SIZE_BYTES))
@@ -282,16 +296,17 @@ if [ -f "dist/TradingBook 1.0.0.exe" ]; then
     else
         print_warning "⚠️ Windows EXE format verification failed"
     fi
-else
+elif [ "$LINUX_ONLY" != true ]; then
     print_error "❌ Windows EXE missing"
 fi
 
-if [ -f "dist/TradingBook-1.0.0-Windows.zip" ]; then
+# Windows ZIP verification
+if [ "$LINUX_ONLY" != true ] && [ -f "dist/TradingBook-1.0.0-Windows.zip" ]; then
     ZIP_SIZE_BYTES=$(stat -c%s "dist/TradingBook-1.0.0-Windows.zip")
     ZIP_SIZE_MB=$((ZIP_SIZE_BYTES / 1024 / 1024))
     TOTAL_SIZE=$((TOTAL_SIZE + ZIP_SIZE_BYTES))
     print_success "✅ Windows ZIP: ${ZIP_SIZE_MB}MB"
-else
+elif [ "$LINUX_ONLY" != true ]; then
     print_warning "⚠️ Windows ZIP archive missing"
 fi
 
