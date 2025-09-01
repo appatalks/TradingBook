@@ -35,9 +35,83 @@ print_header() {
     echo -e "${PURPLE}========================================${NC}"
 }
 
+# Function to verify critical dependencies
+verify_dependencies() {
+    print_status "Verifying critical dependencies..."
+    
+    local missing_deps=()
+    
+    # Check for React types
+    if [ ! -d "node_modules/@types/react" ]; then
+        missing_deps+=("@types/react")
+    fi
+    
+    # Check for React DOM types  
+    if [ ! -d "node_modules/@types/react-dom" ]; then
+        missing_deps+=("@types/react-dom")
+    fi
+    
+    # Check for TypeScript
+    if [ ! -d "node_modules/typescript" ]; then
+        missing_deps+=("typescript")
+    fi
+    
+    # Check for better-sqlite3
+    if [ ! -d "node_modules/better-sqlite3" ]; then
+        missing_deps+=("better-sqlite3")
+    fi
+    
+    # Check for electron
+    if [ ! -d "node_modules/electron" ]; then
+        missing_deps+=("electron")
+    fi
+    
+    if [ ${#missing_deps[@]} -gt 0 ]; then
+        print_warning "Missing critical dependencies: ${missing_deps[*]}"
+        return 1
+    fi
+    
+    print_success "All critical dependencies verified"
+    return 0
+}
+
+# Function to install dependencies with retry logic
+install_dependencies_with_retry() {
+    local max_retries=3
+    local retry_count=0
+    
+    while [ $retry_count -lt $max_retries ]; do
+        print_status "Installing npm dependencies (attempt $((retry_count + 1))/$max_retries)..."
+        
+        if npm install --legacy-peer-deps; then
+            print_success "Dependencies installed successfully"
+            
+            # Verify installation
+            if verify_dependencies; then
+                return 0
+            else
+                print_warning "Dependency verification failed, retrying..."
+            fi
+        else
+            print_warning "npm install failed on attempt $((retry_count + 1))"
+        fi
+        
+        retry_count=$((retry_count + 1))
+        
+        if [ $retry_count -lt $max_retries ]; then
+            print_status "Cleaning up for retry..."
+            rm -rf node_modules package-lock.json 2>/dev/null || true
+            sleep 2
+        fi
+    done
+    
+    print_error "Failed to install dependencies after $max_retries attempts"
+    return 1
+}
+
 # Function to show help
 show_help() {
-    echo "TradingBook Multi-Platform Build Script"
+    echo "TradingBook Multi-Platform Build Script (Robust Edition)"
     echo ""
     echo "Usage: ./create-installs.sh [OPTIONS]"
     echo ""
@@ -46,13 +120,21 @@ show_help() {
     echo "  --linux-only   Build only Linux AppImage"
     echo "  --windows-only Build only Windows EXE"
     echo ""
+    echo "Robust Features:"
+    echo "  • Dependency verification with retry logic"
+    echo "  • Critical dependency detection"
+    echo "  • Native module rebuild verification"
+    echo "  • Comprehensive error handling"
+    echo ""
     echo "This script will:"
     echo "  1. Clean all caches (node_modules, build, dist)"
-    echo "  2. Install fresh dependencies"
-    echo "  3. Build React application"
-    echo "  4. Create Linux AppImage (~113MB)"
-    echo "  5. Create Windows portable EXE (~294MB)"
-    echo "  6. Create Windows ZIP archive (~120MB)"
+    echo "  2. Install fresh dependencies with verification (up to 3 attempts)"
+    echo "  3. Verify critical dependencies (@types/react, typescript, etc.)"
+    echo "  4. Rebuild native modules with fallback methods"
+    echo "  5. Build React application with error handling"
+    echo "  6. Create Linux AppImage (~113MB)"
+    echo "  7. Create Windows portable EXE (~294MB)"
+    echo "  8. Create Windows ZIP archive (~120MB)"
     echo ""
     echo "Total build time: ~5-10 minutes"
     echo "Total output size: ~500MB"
@@ -155,20 +237,22 @@ fi
 rm -rf ~/.cache/electron-builder 2>/dev/null || true
 print_success "electron-builder cache cleared"
 
-# Step 2: Fresh dependency installation
+# Step 2: Install dependencies with verification and retry logic
 print_header "Step 2: Installing Fresh Dependencies"
 
-print_status "Installing npm dependencies..."
-if [ "$DRY_RUN" = true ]; then
-    echo -e "${YELLOW}[DRY-RUN]${NC} Would execute: npm install --legacy-peer-deps"
-else
-    npm install --legacy-peer-deps
+# Install dependencies with retry logic and verification
+if ! install_dependencies_with_retry; then
+    print_error "Dependency installation failed after multiple attempts"
+    print_error "You can try running 'rm -rf node_modules package-lock.json && npm install --legacy-peer-deps' manually"
+    exit 1
 fi
-print_success "Dependencies installed successfully"
 
 print_status "Rebuilding native modules..."
-npm run postinstall 2>/dev/null || npx electron-builder install-app-deps
-print_success "Native modules rebuilt"
+if npm run postinstall 2>/dev/null || npx electron-builder install-app-deps; then
+    print_success "Native modules rebuilt successfully"
+else
+    print_warning "Native module rebuild had issues, but continuing..."
+fi
 
 # Step 3: Build React application
 print_header "Step 3: Building React Application"
