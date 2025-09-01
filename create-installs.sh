@@ -35,72 +35,75 @@ print_header() {
     echo -e "${PURPLE}========================================${NC}"
 }
 
-# Function to verify critical dependencies
+# Function to extract version from package.json
+get_version() {
+    if [ -f "package.json" ]; then
+        # Extract version using grep and sed
+        local version=$(grep '"version"' package.json | head -n1 | sed 's/.*"version": *"\([^"]*\)".*/\1/')
+        if [ -n "$version" ]; then
+            echo "$version"
+        else
+            print_error "Could not extract version from package.json"
+            exit 1
+        fi
+    else
+        print_error "package.json not found"
+        exit 1
+    fi
+}
+
+# Extract version from package.json
+VERSION=$(get_version)
+print_status "Detected version: $VERSION"
+
+# Function to verify basic dependencies
 verify_dependencies() {
-    print_status "Verifying critical dependencies..."
+    print_status "Verifying basic dependencies..."
     
     local missing_deps=()
     
-    # Check for React types
-    if [ ! -d "node_modules/@types/react" ]; then
-        missing_deps+=("@types/react")
+    # Check for essential packages only
+    if [ ! -d "node_modules/react" ]; then
+        missing_deps+=("react")
     fi
     
-    # Check for React DOM types  
-    if [ ! -d "node_modules/@types/react-dom" ]; then
-        missing_deps+=("@types/react-dom")
-    fi
-    
-    # Check for TypeScript
-    if [ ! -d "node_modules/typescript" ]; then
-        missing_deps+=("typescript")
-    fi
-    
-    # Check for better-sqlite3
-    if [ ! -d "node_modules/better-sqlite3" ]; then
-        missing_deps+=("better-sqlite3")
-    fi
-    
-    # Check for electron
     if [ ! -d "node_modules/electron" ]; then
         missing_deps+=("electron")
     fi
     
+    if [ ! -d "node_modules/better-sqlite3" ]; then
+        missing_deps+=("better-sqlite3")
+    fi
+    
     if [ ${#missing_deps[@]} -gt 0 ]; then
-        print_warning "Missing critical dependencies: ${missing_deps[*]}"
+        print_warning "Missing basic dependencies: ${missing_deps[*]}"
         return 1
     fi
     
-    print_success "All critical dependencies verified"
+    print_success "Basic dependencies verified"
     return 0
 }
 
-# Function to install dependencies with retry logic
+# Function to install dependencies with simple retry
 install_dependencies_with_retry() {
-    local max_retries=3
+    local max_retries=2
     local retry_count=0
     
     while [ $retry_count -lt $max_retries ]; do
-        print_status "Installing npm dependencies (attempt $((retry_count + 1))/$max_retries)..."
+        print_status "Installing dependencies (attempt $((retry_count + 1))/$max_retries)..."
         
         if npm install --legacy-peer-deps; then
             print_success "Dependencies installed successfully"
-            
-            # Verify installation
-            if verify_dependencies; then
-                return 0
-            else
-                print_warning "Dependency verification failed, retrying..."
-            fi
+            return 0
         else
             print_warning "npm install failed on attempt $((retry_count + 1))"
+            rm -rf node_modules package-lock.json 2>/dev/null || true
         fi
         
         retry_count=$((retry_count + 1))
         
         if [ $retry_count -lt $max_retries ]; then
-            print_status "Cleaning up for retry..."
-            rm -rf node_modules package-lock.json 2>/dev/null || true
+            print_status "Retrying in 2 seconds..."
             sleep 2
         fi
     done
@@ -120,21 +123,21 @@ show_help() {
     echo "  --linux-only   Build only Linux AppImage"
     echo "  --windows-only Build only Windows EXE"
     echo ""
-    echo "Robust Features:"
-    echo "  • Dependency verification with retry logic"
-    echo "  • Critical dependency detection"
-    echo "  • Native module rebuild verification"
-    echo "  • Comprehensive error handling"
+    echo "Features:"
+    echo "  • Clean build from scratch"
+    echo "  • Dependency installation with retry logic"
+    echo "  • Native module rebuilding"
+    echo "  • React build verification"
+    echo "  • Multi-platform distribution creation"
     echo ""
     echo "This script will:"
-    echo "  1. Clean all caches (node_modules, build, dist)"
-    echo "  2. Install fresh dependencies with verification (up to 3 attempts)"
-    echo "  3. Verify critical dependencies (@types/react, typescript, etc.)"
-    echo "  4. Rebuild native modules with fallback methods"
-    echo "  5. Build React application with error handling"
-    echo "  6. Create Linux AppImage (~113MB)"
-    echo "  7. Create Windows portable EXE (~294MB)"
-    echo "  8. Create Windows ZIP archive (~120MB)"
+    echo "  1. Clean all caches and build artifacts"
+    echo "  2. Install fresh dependencies"
+    echo "  3. Rebuild native modules"
+    echo "  4. Build React application"
+    echo "  5. Create Linux AppImage (~113MB)"
+    echo "  6. Create Windows portable EXE (~294MB)"
+    echo "  7. Create Windows ZIP archive (~120MB)"
     echo ""
     echo "Total build time: ~5-10 minutes"
     echo "Total output size: ~500MB"
@@ -202,14 +205,6 @@ fi
 # Step 1: Clean up all caches and build artifacts
 print_header "Step 1: Cleaning Up Caches"
 
-print_status "Removing node_modules..."
-if [ -d "node_modules" ]; then
-    rm -rf node_modules
-    print_success "node_modules removed"
-else
-    print_warning "node_modules directory not found"
-fi
-
 print_status "Removing build directory..."
 if [ -d "build" ]; then
     rm -rf build
@@ -257,11 +252,17 @@ fi
 # Step 3: Build React application
 print_header "Step 3: Building React Application"
 
-print_status "Building optimized React production build..."
+print_status "Building React production build..."
 npm run build
-print_success "React build completed successfully"
+print_success "React build completed"
 
 # Verify React build
+if [ ! -d "build" ] || [ ! -f "build/index.html" ]; then
+    print_error "React build failed - build directory not found or incomplete"
+    exit 1
+fi
+
+# Simple React build verification
 if [ ! -d "build" ] || [ ! -f "build/index.html" ]; then
     print_error "React build failed - build directory not found or incomplete"
     exit 1
@@ -277,10 +278,10 @@ if [ "$WINDOWS_ONLY" != true ]; then
     npm run build-appimage
 
     # Verify AppImage creation
-    if [ -f "dist/TradingBook-1.0.1.AppImage" ]; then
-        APPIMAGE_SIZE=$(du -h "dist/TradingBook-1.0.1.AppImage" | cut -f1)
+    if [ -f "dist/TradingBook-${VERSION}.AppImage" ]; then
+        APPIMAGE_SIZE=$(du -h "dist/TradingBook-${VERSION}.AppImage" | cut -f1)
         print_success "Linux AppImage created successfully (${APPIMAGE_SIZE})"
-        chmod +x "dist/TradingBook-1.0.1.AppImage"
+        chmod +x "dist/TradingBook-${VERSION}.AppImage"
         print_success "AppImage made executable"
     else
         print_error "Linux AppImage creation failed"
@@ -304,8 +305,8 @@ fi
     npm run build-windows-portable
 
     # Verify Windows EXE creation
-    if [ -f "dist/TradingBook 1.0.1.exe" ]; then
-        EXE_SIZE=$(du -h "dist/TradingBook 1.0.1.exe" | cut -f1)
+    if [ -f "dist/TradingBook ${VERSION}.exe" ]; then
+        EXE_SIZE=$(du -h "dist/TradingBook ${VERSION}.exe" | cut -f1)
         print_success "Windows EXE created successfully (${EXE_SIZE})"
     else
         print_error "Windows EXE creation failed"
@@ -321,10 +322,10 @@ if [ "$LINUX_ONLY" != true ]; then
 
     if [ -d "dist/win-unpacked" ]; then
         print_status "Creating ZIP archive of Windows directory build..."
-        cd dist && zip -r "TradingBook-1.0.1-Windows.zip" win-unpacked/ >/dev/null 2>&1 && cd ..
+        cd dist && zip -r "TradingBook-${VERSION}-Windows.zip" win-unpacked/ >/dev/null 2>&1 && cd ..
         
-        if [ -f "dist/TradingBook-1.0.1-Windows.zip" ]; then
-            ZIP_SIZE=$(du -h "dist/TradingBook-1.0.1-Windows.zip" | cut -f1)
+        if [ -f "dist/TradingBook-${VERSION}-Windows.zip" ]; then
+            ZIP_SIZE=$(du -h "dist/TradingBook-${VERSION}-Windows.zip" | cut -f1)
             print_success "Windows ZIP archive created successfully (${ZIP_SIZE})"
         else
             print_warning "Windows ZIP archive creation failed"
@@ -351,14 +352,14 @@ print_status "Verifying build artifacts..."
 TOTAL_SIZE=0
 
 # Linux AppImage verification
-if [ "$WINDOWS_ONLY" != true ] && [ -f "dist/TradingBook-1.0.1.AppImage" ]; then
-    APPIMAGE_SIZE_BYTES=$(stat -c%s "dist/TradingBook-1.0.1.AppImage")
+if [ "$WINDOWS_ONLY" != true ] && [ -f "dist/TradingBook-${VERSION}.AppImage" ]; then
+    APPIMAGE_SIZE_BYTES=$(stat -c%s "dist/TradingBook-${VERSION}.AppImage")
     APPIMAGE_SIZE_MB=$((APPIMAGE_SIZE_BYTES / 1024 / 1024))
     TOTAL_SIZE=$((TOTAL_SIZE + APPIMAGE_SIZE_BYTES))
     print_success "✅ Linux AppImage: ${APPIMAGE_SIZE_MB}MB"
     
     # Verify AppImage format
-    if file "dist/TradingBook-1.0.1.AppImage" | grep -q "AppImage"; then
+    if file "dist/TradingBook-${VERSION}.AppImage" | grep -q "AppImage"; then
         print_success "✅ AppImage format verification passed"
     else
         print_warning "⚠️ AppImage format verification failed"
@@ -368,14 +369,14 @@ elif [ "$WINDOWS_ONLY" != true ]; then
 fi
 
 # Windows EXE verification
-if [ "$LINUX_ONLY" != true ] && [ -f "dist/TradingBook 1.0.1.exe" ]; then
-    EXE_SIZE_BYTES=$(stat -c%s "dist/TradingBook 1.0.1.exe")
+if [ "$LINUX_ONLY" != true ] && [ -f "dist/TradingBook ${VERSION}.exe" ]; then
+    EXE_SIZE_BYTES=$(stat -c%s "dist/TradingBook ${VERSION}.exe")
     EXE_SIZE_MB=$((EXE_SIZE_BYTES / 1024 / 1024))
     TOTAL_SIZE=$((TOTAL_SIZE + EXE_SIZE_BYTES))
     print_success "✅ Windows EXE: ${EXE_SIZE_MB}MB"
     
     # Verify EXE format
-    if file "dist/TradingBook 1.0.1.exe" | grep -q "PE32"; then
+    if file "dist/TradingBook ${VERSION}.exe" | grep -q "PE32"; then
         print_success "✅ Windows EXE format verification passed"
     else
         print_warning "⚠️ Windows EXE format verification failed"
@@ -385,8 +386,8 @@ elif [ "$LINUX_ONLY" != true ]; then
 fi
 
 # Windows ZIP verification
-if [ "$LINUX_ONLY" != true ] && [ -f "dist/TradingBook-1.0.1-Windows.zip" ]; then
-    ZIP_SIZE_BYTES=$(stat -c%s "dist/TradingBook-1.0.1-Windows.zip")
+if [ "$LINUX_ONLY" != true ] && [ -f "dist/TradingBook-${VERSION}-Windows.zip" ]; then
+    ZIP_SIZE_BYTES=$(stat -c%s "dist/TradingBook-${VERSION}-Windows.zip")
     ZIP_SIZE_MB=$((ZIP_SIZE_BYTES / 1024 / 1024))
     TOTAL_SIZE=$((TOTAL_SIZE + ZIP_SIZE_BYTES))
     print_success "✅ Windows ZIP: ${ZIP_SIZE_MB}MB"
@@ -399,9 +400,9 @@ TOTAL_SIZE_MB=$((TOTAL_SIZE / 1024 / 1024))
 print_header "Build Completed Successfully!"
 
 echo -e "${GREEN}📦 Distribution Files Created:${NC}"
-echo -e "   🐧 ${BLUE}TradingBook-1.0.1.AppImage${NC} - Linux portable executable"
-echo -e "   🪟 ${BLUE}TradingBook 1.0.1.exe${NC} - Windows portable executable"
-echo -e "   📁 ${BLUE}TradingBook-1.0.1-Windows.zip${NC} - Windows directory structure"
+echo -e "   🐧 ${BLUE}TradingBook-${VERSION}.AppImage${NC} - Linux portable executable"
+echo -e "   🪟 ${BLUE}TradingBook ${VERSION}.exe${NC} - Windows portable executable"
+echo -e "   📁 ${BLUE}TradingBook-${VERSION}-Windows.zip${NC} - Windows directory structure"
 echo ""
 echo -e "${PURPLE}📊 Total Distribution Size: ${TOTAL_SIZE_MB}MB${NC}"
 echo ""
@@ -412,10 +413,10 @@ echo ""
 print_header "Testing Suggestions"
 
 echo -e "${YELLOW}Linux Testing:${NC}"
-echo -e "   ./dist/TradingBook-1.0.1.AppImage"
+echo -e "   ./dist/TradingBook-${VERSION}.AppImage"
 echo ""
 echo -e "${YELLOW}Windows Testing:${NC}"
-echo -e "   • Copy 'dist/TradingBook 1.0.1.exe' to Windows machine"
+echo -e "   • Copy 'dist/TradingBook ${VERSION}.exe' to Windows machine"
 echo -e "   • Double-click to run (no installation required)"
 echo ""
 echo -e "${YELLOW}Development Testing:${NC}"

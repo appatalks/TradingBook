@@ -1,5 +1,6 @@
 import React from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import packageJson from '../../package.json';
 
 interface SidebarProps {
   darkMode: boolean;
@@ -52,7 +53,7 @@ const Sidebar: React.FC<SidebarProps> = ({ darkMode }) => {
 
       <div className="absolute bottom-4 left-4 right-4">
         <div className="text-xs text-gray-500 dark:text-gray-400 text-left">
-          TradingBook v1.0.0
+          TradingBook v{packageJson.version}
         </div>
       </div>
     </div>
