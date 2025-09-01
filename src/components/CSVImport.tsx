@@ -175,7 +175,8 @@ const CSVImport: React.FC<CSVImportProps> = ({ onImport, onClose }) => {
           if (parts.length === 3) {
             const [month, day, year] = parts.map(p => parseInt(p, 10));
             if (month >= 1 && month <= 12 && day >= 1 && day <= 31 && year >= 1900) {
-              entryDate = new Date(year, month - 1, day);
+              // Create date at 12:00 PM local time to avoid timezone edge cases
+              entryDate = new Date(year, month - 1, day, 12, 0, 0, 0);
             } else {
               throw new Error(`Invalid date components: month=${month}, day=${day}, year=${year}`);
             }

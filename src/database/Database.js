@@ -69,14 +69,14 @@ class DatabaseManager {
         // Store dates without UTC conversion to maintain local timezone accuracy
         const formatDateForStorage = (date) => {
           if (!(date instanceof Date)) return date;
-          // Format as YYYY-MM-DDTHH:mm:ss.000Z but keep local time
+          // Store as YYYY-MM-DDTHH:mm:ss format without Z suffix to avoid timezone confusion
           const year = date.getFullYear();
           const month = String(date.getMonth() + 1).padStart(2, '0');
           const day = String(date.getDate()).padStart(2, '0');
           const hours = String(date.getHours()).padStart(2, '0');
           const minutes = String(date.getMinutes()).padStart(2, '0');
           const seconds = String(date.getSeconds()).padStart(2, '0');
-          return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}.000Z`;
+          return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
         };
         
         const result = stmt.run(
@@ -198,7 +198,7 @@ class DatabaseManager {
           const hours = String(date.getHours()).padStart(2, '0');
           const minutes = String(date.getMinutes()).padStart(2, '0');
           const seconds = String(date.getSeconds()).padStart(2, '0');
-          return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}.000Z`;
+          return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
         };
         
         const fields = [];

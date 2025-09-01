@@ -355,11 +355,11 @@ ipcMain.handle('save-trade', async (event, trade) => {
       }
     }
     
-    // Always send refresh signal to update Dashboard analytics, regardless of P&L matching
+    // Always trigger window reload after manual trade save to ensure all components update
     setTimeout(() => {
-      debugLogger.log(`Sending database refresh signal after trade save${pnlMatchingRan ? ' (with P&L matching)' : ''}...`);
+      debugLogger.log(`Triggering window reload after manual trade save${pnlMatchingRan ? ' (with P&L matching)' : ''}...`);
       if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send('database-restored');
+        mainWindow.reload();
       }
     }, pnlMatchingRan ? 500 : 100);
     

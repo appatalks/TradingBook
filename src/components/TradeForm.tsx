@@ -52,6 +52,22 @@ const TradeForm: React.FC<TradeFormProps> = ({ trades = [], onSubmit, settings }
       const expirationDate = existingTrade.expirationDate 
         ? (existingTrade.expirationDate instanceof Date ? existingTrade.expirationDate : new Date(existingTrade.expirationDate))
         : null;
+      // Helper function to format date for datetime-local input without timezone conversion
+      const formatDateForInput = (date: Date) => {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+        return `${year}-${month}-${day}T${hours}:${minutes}`;
+      };
+      
+      const formatDateOnlyForInput = (date: Date) => {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+      };
         
       setFormData({
         symbol: existingTrade.symbol || '',
@@ -59,15 +75,15 @@ const TradeForm: React.FC<TradeFormProps> = ({ trades = [], onSubmit, settings }
         quantity: (existingTrade.quantity ?? 0).toString(),
         entryPrice: (existingTrade.entryPrice ?? 0).toString(),
         exitPrice: (existingTrade.exitPrice ?? 0) !== 0 ? existingTrade.exitPrice?.toString() || '' : '',
-        entryDate: entryDate.toISOString().slice(0, 16),
-        exitDate: exitDate ? exitDate.toISOString().slice(0, 16) : '',
+        entryDate: formatDateForInput(entryDate),
+        exitDate: exitDate ? formatDateForInput(exitDate) : '',
         commission: (existingTrade.commission ?? 0).toString(),
         strategy: existingTrade.strategy || '',
         notes: existingTrade.notes || '',
         assetType: existingTrade.assetType || 'STOCK',
         optionType: existingTrade.optionType || '',
         strikePrice: (existingTrade.strikePrice ?? 0) !== 0 ? existingTrade.strikePrice?.toString() || '' : '',
-        expirationDate: expirationDate ? expirationDate.toISOString().slice(0, 10) : ''
+        expirationDate: expirationDate ? formatDateOnlyForInput(expirationDate) : ''
       });
     }
   }, [existingTrade]);
