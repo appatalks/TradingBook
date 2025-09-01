@@ -25,6 +25,34 @@ const App: React.FC = () => {
       window.electronAPI.onToggleTheme(() => {
         setDarkMode(prev => !prev);
       });
+      
+      // Listen for database refresh events to avoid window reloads
+      const handleDatabasePurged = () => {
+        console.log('Database purged - refreshing data...');
+        setTrades([]);
+        loadTrades();
+      };
+      
+      const handleDatabaseRestored = () => {
+        console.log('Database restored - refreshing data...');
+        loadTrades();
+        loadSettings();
+      };
+      
+      const handleDatabaseError = (error: string) => {
+        console.error('Database error:', error);
+        loadTrades();
+      };
+      
+      // Add event listeners
+      window.electronAPI.onDatabasePurged?.(handleDatabasePurged);
+      window.electronAPI.onDatabaseRestored?.(handleDatabaseRestored);
+      window.electronAPI.onDatabaseError?.(handleDatabaseError);
+      
+      return () => {
+        // Cleanup listeners if available
+        window.electronAPI.removeDatabaseListeners?.();
+      };
     }
   }, []);
 
@@ -70,14 +98,8 @@ const App: React.FC = () => {
   const addBulkTrades = async (newTrades: Omit<Trade, 'id'>[]) => {
     try {
       if (window.electronAPI && newTrades.length > 0) {
-        const savedTrades: Trade[] = [];
-        
-        // Add trades sequentially to maintain database consistency
-        for (const trade of newTrades) {
-          const savedTrade = await window.electronAPI.saveTrade(trade);
-          savedTrades.push(savedTrade);
-        }
-        
+        // Use bulk save to prevent excessive re-renders and flashing
+        const savedTrades = await window.electronAPI.saveTradesBulk(newTrades);
         setTrades(prev => [...prev, ...savedTrades]);
       }
     } catch (error) {

@@ -154,7 +154,8 @@ async function createWindow() {
       contextIsolation: true,
       enableRemoteModule: false,
       webSecurity: true, // Allow loading local resources
-      preload: path.join(__dirname, 'preload.js')
+      preload: path.join(__dirname, 'preload.js'),
+      additionalArguments: ['--js-flags=--expose-gc'] // Enable garbage collection access
     },
     icon: path.join(__dirname, '../assets/icon.png'),
     show: false,
@@ -247,23 +248,6 @@ async function createWindow() {
       label: 'File',
       submenu: [
         {
-          label: 'Import Trades',
-          accelerator: 'CmdOrCtrl+I',
-          click: () => {
-            dialog.showOpenDialog(mainWindow, {
-              properties: ['openFile'],
-              filters: [
-                { name: 'CSV Files', extensions: ['csv'] },
-                { name: 'All Files', extensions: ['*'] }
-              ]
-            }).then(result => {
-              if (!result.canceled) {
-                mainWindow.webContents.send('import-trades', result.filePaths[0]);
-              }
-            });
-          }
-        },
-        {
           label: 'Export Data',
           accelerator: 'CmdOrCtrl+E',
           click: () => {
@@ -339,9 +323,90 @@ function initDatabase() {
 // IPC handlers for database operations
 ipcMain.handle('save-trade', async (event, trade) => {
   try {
-    return await db.saveTrade(trade);
+    const result = await db.saveTrade(trade);
+    
+    // Auto-run P&L matching if this trade could potentially match with existing trades
+    // Only for BUY/SELL trades (not options or other complex instruments)
+    if (trade.side === 'BUY' || trade.side === 'SELL') {
+      debugLogger.log(`Auto-checking for potential P&L matches after saving ${trade.side} trade for ${trade.symbol}...`);
+      try {
+        // Check if there are opposing trades for this symbol
+        const allTrades = await db.getTrades({ symbol: trade.symbol });
+        const unmatchedTrades = allTrades.filter(t => t.pnl === null || t.pnl === undefined);
+        const buys = unmatchedTrades.filter(t => t.side === 'BUY').length;
+        const sells = unmatchedTrades.filter(t => t.side === 'SELL').length;
+        
+        // If we have both buys and sells for this symbol, run P&L matching
+        if (buys > 0 && sells > 0) {
+          debugLogger.log(`Found ${buys} buys and ${sells} sells for ${trade.symbol} - auto-running P&L matching...`);
+          await matchAndCalculatePnL();
+          debugLogger.log('Auto P&L matching completed after trade save');
+          
+          // Send refresh signal to React app so analytics get updated
+          setTimeout(() => {
+            debugLogger.log('Sending database refresh signal after auto P&L matching...');
+            if (mainWindow && !mainWindow.isDestroyed()) {
+              mainWindow.webContents.send('database-restored');
+            }
+          }, 500);
+        } else {
+          debugLogger.log(`No matching opportunities for ${trade.symbol} (${buys} buys, ${sells} sells)`);
+        }
+      } catch (matchError) {
+        console.error('Auto P&L matching failed after trade save:', matchError);
+      }
+    }
+    
+    return result;
   } catch (error) {
     console.error('Failed to save trade:', error);
+    throw error;
+  }
+});
+
+// Bulk trade save handler to prevent excessive re-renders during CSV import
+ipcMain.handle('save-trades-bulk', async (event, trades) => {
+  try {
+    const savedTrades = [];
+    let shouldRunPnLMatching = false;
+    
+    debugLogger.log(`Starting bulk save of ${trades.length} trades...`);
+    
+    // Save all trades first without triggering P&L matching for each
+    for (const trade of trades) {
+      const result = await db.saveTrade(trade);
+      savedTrades.push(result);
+      
+      // Check if we should run P&L matching at the end
+      if (trade.side === 'BUY' || trade.side === 'SELL') {
+        shouldRunPnLMatching = true;
+      }
+    }
+    
+    debugLogger.log(`Bulk save completed: ${savedTrades.length} trades saved`);
+    
+    // Run P&L matching once at the end if needed
+    if (shouldRunPnLMatching) {
+      debugLogger.log('Running P&L matching after bulk import...');
+      try {
+        await matchAndCalculatePnL();
+        debugLogger.log('Bulk P&L matching completed');
+      } catch (matchError) {
+        console.error('Bulk P&L matching failed:', matchError);
+      }
+    }
+    
+    // Send single refresh signal at the end
+    setTimeout(() => {
+      debugLogger.log('Sending single database refresh signal after bulk import...');
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('database-restored');
+      }
+    }, 500);
+    
+    return savedTrades;
+  } catch (error) {
+    console.error('Failed to save trades bulk:', error);
     throw error;
   }
 });
@@ -484,27 +549,19 @@ ipcMain.handle('load-settings', async (event) => {
 // Backup and restore handlers
 ipcMain.handle('backup-database', async (event) => {
   try {
-    const result = await dialog.showSaveDialog(mainWindow, {
-      title: 'Export Database Backup',
-      defaultPath: `TradingBook_backup_${new Date().toISOString().split('T')[0]}.db`,
-      filters: [
-        { name: 'Database Files', extensions: ['db'] },
-        { name: 'All Files', extensions: ['*'] }
-      ]
-    });
-
-    if (!result.canceled && result.filePath) {
-      const dbPath = db.getDatabasePath();
-      
-      // Ensure database is properly closed/synced before copying
-      db.checkpoint();
-      
-      fs.copyFileSync(dbPath, result.filePath);
-      debugLogger.log('Database backup created:', result.filePath);
-      return { success: true, path: result.filePath };
-    }
+    // Use Downloads folder with automatic filename
+    const downloadsPath = app.getPath('downloads');
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').split('T')[0];
+    const backupPath = path.join(downloadsPath, `TradingBook_backup_${timestamp}.db`);
     
-    return { success: false, error: 'Backup canceled' };
+    const dbPath = db.getDatabasePath();
+    
+    // Ensure database is properly closed/synced before copying
+    db.checkpoint();
+    
+    fs.copyFileSync(dbPath, backupPath);
+    debugLogger.log('Database backup created:', backupPath);
+    return { success: true, path: backupPath };
   } catch (error) {
     console.error('Failed to backup database:', error);
     return { success: false, error: error.message };
@@ -513,8 +570,10 @@ ipcMain.handle('backup-database', async (event) => {
 
 ipcMain.handle('restore-database', async (event) => {
   try {
+    // Show file picker dialog for backup file
     const result = await dialog.showOpenDialog(mainWindow, {
-      title: 'Select Database Backup to Restore',
+      title: 'Select Database Backup File',
+      defaultPath: app.getPath('downloads'),
       filters: [
         { name: 'Database Files', extensions: ['db'] },
         { name: 'All Files', extensions: ['*'] }
@@ -522,24 +581,36 @@ ipcMain.handle('restore-database', async (event) => {
       properties: ['openFile']
     });
 
-    if (!result.canceled && result.filePaths.length > 0) {
-      const backupPath = result.filePaths[0];
-      const dbPath = db.getDatabasePath();
-      
-      // Close current database
-      db.close();
-      
-      // Replace current database with backup
-      fs.copyFileSync(backupPath, dbPath);
-      
-      // Reinitialize database
-      db = new DatabaseManager();
-      
-      debugLogger.log('Database restored from:', backupPath);
-      return { success: true, path: backupPath };
+    if (result.canceled || !result.filePaths.length) {
+      return { success: false, error: 'No file selected' };
+    }
+
+    const backupPath = result.filePaths[0];
+    
+    // Verify the backup file exists
+    if (!fs.existsSync(backupPath)) {
+      return { success: false, error: 'Backup file not found' };
     }
     
-    return { success: false, error: 'Restore canceled' };
+    const dbPath = db.getDatabasePath();
+    
+    // Close current database
+    db.close();
+    
+    // Replace current database with backup
+    fs.copyFileSync(backupPath, dbPath);
+    
+    // Reinitialize database
+    db = new DatabaseManager();
+    
+    debugLogger.log('Database restored from:', backupPath);
+    
+    // Send refresh signal to React app instead of reloading window
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('database-restored');
+    }
+    
+    return { success: true, path: backupPath };
   } catch (error) {
     console.error('Failed to restore database:', error);
     
@@ -557,13 +628,53 @@ ipcMain.handle('restore-database', async (event) => {
 // Purge database handler
 ipcMain.handle('purge-database', async (event) => {
   try {
-    // Clear all trades from the database
-    db.purgeAllTrades();
+    debugLogger.log('Starting complete database purge and reinitialization...');
     
-    debugLogger.log('Database purged successfully');
+    // Get the database path before closing
+    const dbPath = db.getDatabasePath();
+    
+    // Close current database connection
+    db.close();
+    
+    // Delete the entire database file
+    if (fs.existsSync(dbPath)) {
+      fs.unlinkSync(dbPath);
+      debugLogger.log('Database file deleted:', dbPath);
+    }
+    
+    // Reinitialize database with fresh schema
+    db = new DatabaseManager();
+    debugLogger.log('Database reinitialized with fresh schema');
+    
+    debugLogger.log('Complete database purge successful - all data cleared');
+    
+    // Send refresh signal to React app instead of reloading window
+    setTimeout(() => {
+      debugLogger.log('Sending database-purged signal to React app...');
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('database-purged');
+      }
+    }, 500);
+    
     return { success: true };
   } catch (error) {
     console.error('Failed to purge database:', error);
+    
+    // Try to reinitialize database if something went wrong
+    try {
+      db = new DatabaseManager();
+      debugLogger.log('Database reinitialized after purge error');
+      
+      // Send error notification to React app instead of reloading
+      setTimeout(() => {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('database-error', 'Purge failed but database reinitialized');
+        }
+      }, 500);
+    } catch (reinitError) {
+      console.error('Failed to reinitialize database after purge error:', reinitError);
+    }
+    
     return { success: false, error: error.message };
   }
 });
@@ -571,52 +682,44 @@ ipcMain.handle('purge-database', async (event) => {
 // CSV Import/Export handlers
 ipcMain.handle('export-csv', async (event) => {
   try {
-    const result = await dialog.showSaveDialog(mainWindow, {
-      title: 'Export Trades to CSV',
-      defaultPath: `TradingBook_trades_${new Date().toISOString().split('T')[0]}.csv`,
-      filters: [
-        { name: 'CSV Files', extensions: ['csv'] },
-        { name: 'All Files', extensions: ['*'] }
-      ]
-    });
-
-    if (!result.canceled && result.filePath) {
-      // Get all trades from database
-      const trades = await db.getTrades({});
-      
-      // Convert to CSV format
-      const csvHeader = 'ID,Symbol,Side,Quantity,Entry Price,Exit Price,Entry Date,Exit Date,P&L,Commission,Strategy,Notes,Tags,Asset Type,Option Type,Strike Price,Expiration Date\n';
-      const csvRows = trades.map(trade => {
-        const row = [
-          trade.id,
-          trade.symbol,
-          trade.side,
-          trade.quantity,
-          trade.entryPrice,
-          trade.exitPrice || '',
-          trade.entryDate,
-          trade.exitDate || '',
-          trade.pnl || '',
-          trade.commission || '',
-          trade.strategy || '',
-          trade.notes ? `"${trade.notes.replace(/"/g, '""')}"` : '', // Escape quotes in notes
-          trade.tags || '',
-          trade.assetType,
-          trade.optionType || '',
-          trade.strikePrice || '',
-          trade.expirationDate || ''
-        ];
-        return row.join(',');
-      }).join('\n');
-      
-      const csvContent = csvHeader + csvRows;
-      fs.writeFileSync(result.filePath, csvContent, 'utf8');
-      
-      debugLogger.log('CSV export completed:', result.filePath);
-      return { success: true, path: result.filePath, count: trades.length };
-    }
+    // Use Downloads folder with automatic filename
+    const downloadsPath = app.getPath('downloads');
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').split('T')[0];
+    const exportPath = path.join(downloadsPath, `TradingBook_trades_${timestamp}.csv`);
     
-    return { success: false, error: 'Export canceled' };
+    // Get all trades from database
+    const trades = await db.getTrades({});
+    
+    // Convert to CSV format
+    const csvHeader = 'ID,Symbol,Side,Quantity,Entry Price,Exit Price,Entry Date,Exit Date,P&L,Commission,Strategy,Notes,Tags,Asset Type,Option Type,Strike Price,Expiration Date\n';
+    const csvRows = trades.map(trade => {
+      const row = [
+        trade.id,
+        trade.symbol,
+        trade.side,
+        trade.quantity,
+        trade.entryPrice,
+        trade.exitPrice || '',
+        trade.entryDate,
+        trade.exitDate || '',
+        trade.pnl || '',
+        trade.commission || '',
+        trade.strategy || '',
+        trade.notes ? `"${trade.notes.replace(/"/g, '""')}"` : '', // Escape quotes in notes
+        trade.tags || '',
+        trade.assetType,
+        trade.optionType || '',
+        trade.strikePrice || '',
+        trade.expirationDate || ''
+      ];
+      return row.join(',');
+    }).join('\n');
+    
+    const csvContent = csvHeader + csvRows;
+    fs.writeFileSync(exportPath, csvContent, 'utf8');
+    
+    debugLogger.log('CSV export completed:', exportPath);
+    return { success: true, path: exportPath, count: trades.length };
   } catch (error) {
     console.error('Failed to export CSV:', error);
     return { success: false, error: error.message };
@@ -630,7 +733,7 @@ async function matchAndCalculatePnL() {
     
     let hasMatches = true;
     let iterationCount = 0;
-    const maxIterations = 50; // Safety limit to prevent infinite loops
+    const maxIterations = 650; // Safety limit to prevent infinite loops
     
     while (hasMatches && iterationCount < maxIterations) {
       iterationCount++;
@@ -800,8 +903,10 @@ async function matchAndCalculatePnL() {
 
 ipcMain.handle('import-csv', async (event) => {
   try {
+    // Show file picker dialog for CSV file
     const result = await dialog.showOpenDialog(mainWindow, {
-      title: 'Import Trades from CSV',
+      title: 'Select CSV File to Import',
+      defaultPath: app.getPath('downloads'),
       filters: [
         { name: 'CSV Files', extensions: ['csv'] },
         { name: 'All Files', extensions: ['*'] }
@@ -809,169 +914,192 @@ ipcMain.handle('import-csv', async (event) => {
       properties: ['openFile']
     });
 
-    if (!result.canceled && result.filePaths.length > 0) {
-      const csvPath = result.filePaths[0];
-      const csvContent = fs.readFileSync(csvPath, 'utf8');
-      
-      // Parse CSV (simple implementation)
-      const lines = csvContent.split('\n');
-      const header = lines[0];
-      const dataLines = lines.slice(1).filter(line => line.trim().length > 0);
-      
-      let importedCount = 0;
-      let errorCount = 0;
-      const errors = [];
-      
-      for (let i = 0; i < dataLines.length; i++) {
-        try {
-          const line = dataLines[i].trim();
-          
-          // Enhanced CSV parsing for properly quoted fields with embedded commas
-          let values = [];
-          let current = '';
-          let inQuotes = false;
-          
-          for (let j = 0; j < line.length; j++) {
-            const char = line[j];
-            const nextChar = j + 1 < line.length ? line[j + 1] : '';
-            
-            if (char === '"' && nextChar === '"') {
-              // Handle escaped quotes ("")
-              current += '"';
-              j++; // Skip next character
-            } else if (char === '"') {
-              // Toggle quote state
-              inQuotes = !inQuotes;
-            } else if (char === ',' && !inQuotes) {
-              // Field separator outside quotes
-              values.push(current.trim());
-              current = '';
-            } else {
-              current += char;
-            }
-          }
-          values.push(current.trim()); // Add the last field
-          
-          debugLogger.log(`Debug line ${i + 2}: parsed ${values.length} fields:`, values.map(v => `"${v}"`));
-          
-          // Check if this looks like a Schwab CSV format
-          if (values.length >= 8 && values[0] && values[1] && values[2] && values[4] && values[5]) {
-            // Schwab format: Date, Action, Symbol, Description, Quantity, Price, Fees & Comm, Amount
-            const action = values[1].trim();
-            const symbol = values[2].trim();
-            
-            // Skip non-trading actions
-            if (!action || !['Buy', 'Sell'].includes(action)) {
-              debugLogger.log(`Skipping non-trading action: ${action}`);
-              continue;
-            }
-            
-            if (!symbol) {
-              debugLogger.log(`Skipping empty symbol`);
-              continue;
-            }
-            
-            const quantity = Math.abs(parseFloat(values[4].replace(/[,$"]/g, '')) || 0);
-            const price = parseFloat(values[5].replace(/[$,"]/g, '') || '0');
-            const commission = Math.abs(parseFloat(values[6].replace(/[$,"]/g, '') || '0'));
-            
-            // Parse Schwab date format MM/DD/YYYY
-            let entryDate = new Date().toISOString();
-            if (values[0] && values[0].includes('/')) {
-              const dateParts = values[0].split('/');
-              if (dateParts.length === 3) {
-                const [month, day, year] = dateParts.map(p => parseInt(p, 10));
-                if (month >= 1 && month <= 12 && day >= 1 && day <= 31 && year >= 1900) {
-                  entryDate = new Date(year, month - 1, day).toISOString();
-                }
-              }
-            }
-            
-            const trade = {
-              symbol: symbol.toUpperCase(),
-              side: action.toUpperCase(),
-              quantity: quantity,
-              entryPrice: price,
-              exitPrice: null,
-              entryDate: entryDate,
-              exitDate: null,
-              pnl: null,
-              commission: commission,
-              strategy: '',
-              notes: `Imported from Schwab CSV - ${values[3] || ''}`.trim(),
-              tags: '',
-              assetType: 'STOCK',
-              optionType: null,
-              strikePrice: null,
-              expirationDate: null
-            };
-            
-            // Validate required fields
-            if (!trade.symbol || trade.quantity <= 0 || trade.entryPrice <= 0) {
-              errors.push(`Line ${i + 2}: Invalid required fields - Symbol: ${trade.symbol}, Quantity: ${trade.quantity}, Price: ${trade.entryPrice}`);
-              errorCount++;
-              continue;
-            }
-            
-            // Save trade
-            await db.saveTrade(trade);
-            importedCount++;
-            debugLogger.log(`Successfully imported: ${trade.symbol} ${trade.side} ${trade.quantity} @ ${trade.entryPrice}`);
-            
-          } else {
-            // Original format for backward compatibility  
-            const trade = {
-              symbol: values[1]?.trim() || '',
-              side: values[2]?.trim() || 'BUY',
-              quantity: parseFloat(values[3]) || 0,
-              entryPrice: parseFloat(values[4]) || 0,
-              exitPrice: values[5] ? parseFloat(values[5]) : null,
-              entryDate: values[6]?.trim() || new Date().toISOString(),
-              exitDate: values[7]?.trim() || null,
-              pnl: values[8] ? parseFloat(values[8]) : null,
-              commission: values[9] ? parseFloat(values[9]) : 0,
-              strategy: values[10]?.trim() || '',
-              notes: values[11]?.trim().replace(/^"(.*)"$/, '$1').replace(/""/g, '"') || '',
-              tags: values[12]?.trim() || '',
-              assetType: values[13]?.trim() || 'STOCK',
-              optionType: values[14]?.trim() || null,
-              strikePrice: values[15] ? parseFloat(values[15]) : null,
-              expirationDate: values[16]?.trim() || null
-            };
-            
-            // Validate required fields
-            if (!trade.symbol || trade.quantity <= 0 || trade.entryPrice <= 0) {
-              errors.push(`Line ${i + 2}: Invalid required fields`);
-              errorCount++;
-              continue;
-            }
-            
-            // Save trade
-            await db.saveTrade(trade);
-            importedCount++;
-          }
-          
-        } catch (lineError) {
-          errors.push(`Line ${i + 2}: ${lineError.message}`);
-          errorCount++;
-        }
-      }
-      
-      debugLogger.log(`CSV import completed: ${importedCount} imported, ${errorCount} errors`);
-      
-      // CSV import complete - P&L matching is now manual only
-      debugLogger.log('CSV import completed. Use "Match P&L" from Settings menu to calculate P&L for imported trades.');
-      
-      return { 
-        success: true, 
-        path: csvPath, 
-        imported: importedCount, 
-        errors: errorCount,
-        errorDetails: errors.slice(0, 10) // Return first 10 errors
-      };
+    if (result.canceled || !result.filePaths.length) {
+      return { success: false, error: 'No file selected' };
+    }
+
+    const csvPath = result.filePaths[0];
+    
+    // Verify the CSV file exists
+    if (!fs.existsSync(csvPath)) {
+      return { success: false, error: 'CSV file not found' };
     }
     
-    return { success: false, error: 'Import canceled' };
+    const csvContent = fs.readFileSync(csvPath, 'utf8');
+    
+    // Parse CSV (simple implementation)
+    const lines = csvContent.split('\n');
+    const header = lines[0];
+    const dataLines = lines.slice(1).filter(line => line.trim().length > 0);
+    
+    let importedCount = 0;
+    let errorCount = 0;
+    const errors = [];
+    
+    for (let i = 0; i < dataLines.length; i++) {
+      try {
+        const line = dataLines[i].trim();
+        
+        // Enhanced CSV parsing for properly quoted fields with embedded commas
+        let values = [];
+        let current = '';
+        let inQuotes = false;
+        
+        for (let j = 0; j < line.length; j++) {
+          const char = line[j];
+          const nextChar = j + 1 < line.length ? line[j + 1] : '';
+          
+          if (char === '"' && nextChar === '"') {
+            // Handle escaped quotes ("")
+            current += '"';
+            j++; // Skip next character
+          } else if (char === '"') {
+            // Toggle quote state
+            inQuotes = !inQuotes;
+          } else if (char === ',' && !inQuotes) {
+            // Field separator outside quotes
+            values.push(current.trim());
+            current = '';
+          } else {
+            current += char;
+          }
+        }
+        values.push(current.trim()); // Add the last field
+        
+        debugLogger.log(`Debug line ${i + 2}: parsed ${values.length} fields:`, values.map(v => `"${v}"`));
+        
+        // Check if this looks like a Schwab CSV format
+        if (values.length >= 8 && values[0] && values[1] && values[2] && values[4] && values[5]) {
+          // Schwab format: Date, Action, Symbol, Description, Quantity, Price, Fees & Comm, Amount
+          const action = values[1].trim();
+          const symbol = values[2].trim();
+          
+          // Skip non-trading actions
+          if (!action || !['Buy', 'Sell'].includes(action)) {
+            debugLogger.log(`Skipping non-trading action: ${action}`);
+            continue;
+          }
+          
+          if (!symbol) {
+            debugLogger.log(`Skipping empty symbol`);
+            continue;
+          }
+          
+          const quantity = Math.abs(parseFloat(values[4].replace(/[,$"]/g, '')) || 0);
+          const price = parseFloat(values[5].replace(/[$,"]/g, '') || '0');
+          const commission = Math.abs(parseFloat(values[6].replace(/[$,"]/g, '') || '0'));
+          
+          // Parse Schwab date format MM/DD/YYYY
+          let entryDate = new Date().toISOString();
+          if (values[0] && values[0].includes('/')) {
+            const dateParts = values[0].split('/');
+            if (dateParts.length === 3) {
+              const [month, day, year] = dateParts.map(p => parseInt(p, 10));
+              if (month >= 1 && month <= 12 && day >= 1 && day <= 31 && year >= 1900) {
+                entryDate = new Date(year, month - 1, day).toISOString();
+              }
+            }
+          }
+          
+          const trade = {
+            symbol: symbol.toUpperCase(),
+            side: action.toUpperCase(),
+            quantity: quantity,
+            entryPrice: price,
+            exitPrice: null,
+            entryDate: entryDate,
+            exitDate: null,
+            pnl: null,
+            commission: commission,
+            strategy: '',
+            notes: `Imported from Schwab CSV - ${values[3] || ''}`.trim(),
+            tags: '',
+            assetType: 'STOCK',
+            optionType: null,
+            strikePrice: null,
+            expirationDate: null
+          };
+          
+          // Validate required fields
+          if (!trade.symbol || trade.quantity <= 0 || trade.entryPrice <= 0) {
+            errors.push(`Line ${i + 2}: Invalid required fields - Symbol: ${trade.symbol}, Quantity: ${trade.quantity}, Price: ${trade.entryPrice}`);
+            errorCount++;
+            continue;
+          }
+          
+          // Save trade
+          await db.saveTrade(trade);
+          importedCount++;
+          debugLogger.log(`Successfully imported: ${trade.symbol} ${trade.side} ${trade.quantity} @ ${trade.entryPrice}`);
+          
+        } else {
+          // Original format for backward compatibility  
+          const trade = {
+            symbol: values[1]?.trim() || '',
+            side: values[2]?.trim() || 'BUY',
+            quantity: parseFloat(values[3]) || 0,
+            entryPrice: parseFloat(values[4]) || 0,
+            exitPrice: values[5] ? parseFloat(values[5]) : null,
+            entryDate: values[6]?.trim() || new Date().toISOString(),
+            exitDate: values[7]?.trim() || null,
+            pnl: values[8] ? parseFloat(values[8]) : null,
+            commission: values[9] ? parseFloat(values[9]) : 0,
+            strategy: values[10]?.trim() || '',
+            notes: values[11]?.trim().replace(/^"(.*)"$/, '$1').replace(/""/g, '"') || '',
+            tags: values[12]?.trim() || '',
+            assetType: values[13]?.trim() || 'STOCK',
+            optionType: values[14]?.trim() || null,
+            strikePrice: values[15] ? parseFloat(values[15]) : null,
+            expirationDate: values[16]?.trim() || null
+          };
+          
+          // Validate required fields
+          if (!trade.symbol || trade.quantity <= 0 || trade.entryPrice <= 0) {
+            errors.push(`Line ${i + 2}: Invalid required fields`);
+            errorCount++;
+            continue;
+          }
+          
+          // Save trade
+          await db.saveTrade(trade);
+          importedCount++;
+        }
+        
+      } catch (lineError) {
+        errors.push(`Line ${i + 2}: ${lineError.message}`);
+        errorCount++;
+      }
+    }
+    
+    debugLogger.log(`CSV import completed: ${importedCount} imported, ${errorCount} errors`);
+    
+    // Automatically run P&L matching if we imported trades
+    if (importedCount > 0) {
+      debugLogger.log('Auto-running P&L matching after CSV import...');
+      try {
+        await matchAndCalculatePnL();
+        debugLogger.log('Auto P&L matching completed after CSV import');
+        
+        // Send refresh signal to React app so analytics get updated
+        setTimeout(() => {
+          debugLogger.log('Sending database refresh signal after CSV import P&L matching...');
+          if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send('database-restored');
+          }
+        }, 500);
+      } catch (matchError) {
+        console.error('Auto P&L matching failed after CSV import:', matchError);
+      }
+    }
+    
+    return { 
+      success: true, 
+      path: csvPath, 
+      imported: importedCount, 
+      errors: errorCount,
+      errorDetails: errors.slice(0, 10), // Return first 10 errors
+      autoMatched: importedCount > 0 // Indicate if P&L matching was run
+    };
   } catch (error) {
     console.error('Failed to import CSV:', error);
     return { success: false, error: error.message };
@@ -983,6 +1111,16 @@ ipcMain.handle('match-pnl', async (event) => {
   try {
     debugLogger.log('Manual P&L matching triggered...');
     await matchAndCalculatePnL();
+    debugLogger.log('P&L matching completed successfully');
+    
+    // Send refresh signal to React app so analytics get updated
+    setTimeout(() => {
+      debugLogger.log('Sending database refresh signal after P&L matching...');
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('database-restored');
+      }
+    }, 500);
+    
     return { success: true, message: 'P&L matching completed successfully' };
   } catch (error) {
     console.error('Failed to match P&L:', error);
@@ -1137,6 +1275,17 @@ ipcMain.handle('open-external', async (event, url) => {
     return { success: true };
   } catch (error) {
     console.error('Failed to open external URL:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// Add IPC handler for getting Downloads path
+ipcMain.handle('get-downloads-path', async (event) => {
+  try {
+    const downloadsPath = app.getPath('downloads');
+    return { success: true, path: downloadsPath };
+  } catch (error) {
+    console.error('Failed to get downloads path:', error);
     return { success: false, error: error.message };
   }
 });

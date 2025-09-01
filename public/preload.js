@@ -8,6 +8,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   
   // Database operations
   saveTrade: (trade) => ipcRenderer.invoke('save-trade', trade),
+  saveTradesBulk: (trades) => ipcRenderer.invoke('save-trades-bulk', trades),
   getTrades: (filters) => ipcRenderer.invoke('get-trades', filters),
   updateTrade: (id, trade) => ipcRenderer.invoke('update-trade', id, trade),
   deleteTrade: (id) => ipcRenderer.invoke('delete-trade', id),
@@ -46,6 +47,21 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // External links
   openExternal: (url) => ipcRenderer.invoke('open-external', url),
   
+  // System paths
+  getDownloadsPath: () => ipcRenderer.invoke('get-downloads-path'),
+  
   // Yahoo Finance API
-  fetchStockData: (symbol) => ipcRenderer.invoke('fetch-stock-data', symbol)
+  fetchStockData: (symbol) => ipcRenderer.invoke('fetch-stock-data', symbol),
+  
+  // Database refresh events (to avoid window reloads)
+  onDatabasePurged: (callback) => ipcRenderer.on('database-purged', callback),
+  onDatabaseRestored: (callback) => ipcRenderer.on('database-restored', callback),
+  onDatabaseError: (callback) => ipcRenderer.on('database-error', callback),
+  
+  // Cleanup function for database listeners
+  removeDatabaseListeners: () => {
+    ipcRenderer.removeAllListeners('database-purged');
+    ipcRenderer.removeAllListeners('database-restored');
+    ipcRenderer.removeAllListeners('database-error');
+  }
 });

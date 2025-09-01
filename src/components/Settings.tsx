@@ -19,6 +19,17 @@ const Settings: React.FC<SettingsProps> = ({ darkMode, onToggleDarkMode }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [showPurgeDialog, setShowPurgeDialog] = useState(false);
+  const [notification, setNotification] = useState<{message: string; type: 'success' | 'error' | 'info'} | null>(null);
+  const [confirmDialog, setConfirmDialog] = useState<{message: string; onConfirm: () => void} | null>(null);
+
+  const showNotification = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
+    setNotification({ message, type });
+    setTimeout(() => setNotification(null), 5000);
+  };
+
+  const showConfirm = (message: string, onConfirm: () => void) => {
+    setConfirmDialog({ message, onConfirm });
+  };
 
   useEffect(() => {
     loadSettings();
@@ -66,7 +77,7 @@ const Settings: React.FC<SettingsProps> = ({ darkMode, onToggleDarkMode }) => {
       }
     } catch (error) {
       console.error('Failed to save settings:', error);
-      alert('Failed to save settings. Please try again.');
+      showNotification('Failed to save settings. Please try again.', 'error');
     } finally {
       setIsSaving(false);
     }
@@ -77,21 +88,21 @@ const Settings: React.FC<SettingsProps> = ({ darkMode, onToggleDarkMode }) => {
       if (window.electronAPI) {
         const result = await window.electronAPI.exportCsv();
         if (result.success) {
-          alert(`Data exported successfully!\n${result.count} trades exported to:\n${result.path}`);
+          showNotification(`Data exported successfully!\n${result.count} trades exported to:\n${result.path}`, 'success');
         } else {
           if (result.error !== 'Export canceled') {
-            alert(`Export failed: ${result.error}`);
+            showNotification(`Export failed: ${result.error}`, 'error');
           }
         }
       }
     } catch (error) {
       console.error('Failed to export data:', error);
-      alert('Failed to export data. Please try again.');
+      showNotification('Failed to export data. Please try again.', 'error');
     }
   };
 
   const handleImportData = async () => {
-    if (confirm('This will import trades from a CSV file. Duplicate trades may be created. After import, use "Match P&L" to calculate profits/losses. Continue?')) {
+    showConfirm('This will import trades from a CSV file. Duplicate trades may be created. After import, use "Match P&L" to calculate profits/losses. Continue?', async () => {
       try {
         if (window.electronAPI) {
           const result = await window.electronAPI.importCsv();
@@ -104,18 +115,18 @@ const Settings: React.FC<SettingsProps> = ({ darkMode, onToggleDarkMode }) => {
               }
             }
             message += '\n\nNext step: Click "Match P&L" to calculate profits and losses for your trades.';
-            alert(message);
+            showNotification(message, 'success');
           } else {
             if (result.error !== 'Import canceled') {
-              alert(`Import failed: ${result.error}`);
+              showNotification(`Import failed: ${result.error}`, 'error');
             }
           }
         }
       } catch (error) {
         console.error('Failed to import data:', error);
-        alert('Failed to import data. Please try again.');
+        showNotification('Failed to import data. Please try again.', 'error');
       }
-    }
+    });
   };
 
   const handleBackupDatabase = async () => {
@@ -123,58 +134,57 @@ const Settings: React.FC<SettingsProps> = ({ darkMode, onToggleDarkMode }) => {
       if (window.electronAPI) {
         const result = await window.electronAPI.backupDatabase();
         if (result.success) {
-          alert(`Database backup created successfully!\nSaved to: ${result.path}`);
+          showNotification(`Database backup created successfully!\nSaved to: ${result.path}`, 'success');
         } else {
           if (result.error !== 'Backup canceled') {
-            alert(`Backup failed: ${result.error}`);
+            showNotification(`Backup failed: ${result.error}`, 'error');
           }
         }
       }
     } catch (error) {
       console.error('Failed to backup database:', error);
-      alert('Failed to backup database. Please try again.');
+      showNotification('Failed to backup database. Please try again.', 'error');
     }
   };
 
   const handleRestoreDatabase = async () => {
-    if (confirm('This will replace your current database with the backup. All current data will be lost. Are you sure you want to continue?')) {
+    showConfirm('This will replace your current database with the backup. All current data will be lost. Are you sure you want to continue?', async () => {
       try {
         if (window.electronAPI) {
           const result = await window.electronAPI.restoreDatabase();
           if (result.success) {
-            alert(`Database restored successfully from: ${result.path}\n\nThe application will now restart to load the restored data.`);
-            // Optionally trigger app restart or reload
-            window.location.reload();
+            showNotification(`Database restored successfully from: ${result.path}\n\nThe application will now restart to load the restored data.`, 'success');
+            // The main process will handle the database refresh via IPC events
           } else {
             if (result.error !== 'Restore canceled') {
-              alert(`Restore failed: ${result.error}`);
+              showNotification(`Restore failed: ${result.error}`, 'error');
             }
           }
         }
       } catch (error) {
         console.error('Failed to restore database:', error);
-        alert('Failed to restore database. Please try again.');
+        showNotification('Failed to restore database. Please try again.', 'error');
       }
-    }
+    });
   };
 
   const handleMatchPnL = async () => {
-    if (confirm('This will analyze your trades and match buy/sell pairs to calculate P&L. This may take a few moments. Continue?')) {
+    showConfirm('This will analyze your trades and match buy/sell pairs to calculate P&L. This may take a few moments. Continue?', async () => {
       try {
         if (window.electronAPI) {
           // @ts-ignore - matchPnL method is available in electronAPI
           const result = await window.electronAPI.matchPnL();
           if (result.success) {
-            alert(`P&L matching completed successfully!\n\nRefresh the page to see updated analytics.`);
+            showNotification(`P&L matching completed successfully!\n\nRefresh the page to see updated analytics.`, 'success');
           } else {
-            alert(`P&L matching failed: ${result.error}`);
+            showNotification(`P&L matching failed: ${result.error}`, 'error');
           }
         }
       } catch (error) {
         console.error('Failed to match P&L:', error);
-        alert('Failed to match P&L. Please try again.');
+        showNotification('Failed to match P&L. Please try again.', 'error');
       }
-    }
+    });
   };
 
     const handlePurgeDatabase = async () => {
@@ -183,18 +193,17 @@ const Settings: React.FC<SettingsProps> = ({ darkMode, onToggleDarkMode }) => {
         // @ts-ignore - purgeDatabase method is available in electronAPI
         const result = await window.electronAPI.purgeDatabase();
         if (result.success) {
-          alert(`Database purged successfully! All trade data has been permanently deleted.
+          showNotification(`Database purged successfully! All trade data has been permanently deleted.
 
-The application will now restart with an empty database.`);
-          // Trigger app restart or reload
-          window.location.reload();
+The application will now restart with an empty database.`, 'success');
+          // The main process will handle the database refresh via IPC events
         } else {
-          alert(`Purge failed: ${result.error}`);
+          showNotification(`Purge failed: ${result.error}`, 'error');
         }
       }
     } catch (error) {
       console.error('Failed to purge database:', error);
-      alert('Failed to purge database. Please try again.');
+      showNotification('Failed to purge database. Please try again.', 'error');
     } finally {
       setShowPurgeDialog(false);
     }
@@ -207,26 +216,71 @@ The application will now restart with an empty database.`);
         const result = await window.electronAPI.checkForUpdates();
         if (result.hasUpdate) {
           const message = `🎉 Update Available!\n\nCurrent Version: ${result.currentVersion}\nLatest Version: ${result.latestVersion}\n\nNew in ${result.latestVersion}:\n${result.releaseNotes}\n\nWould you like to download the update?`;
-          if (confirm(message)) {
+          showConfirm(message, () => {
             // Open GitHub releases page in external browser
             // @ts-ignore - openExternal method will be available
             if (window.electronAPI.openExternal && result.downloadUrl) {
               window.electronAPI.openExternal(result.downloadUrl);
             }
-          }
+          });
         } else {
-          alert(`✅ You're up to date!\n\nCurrent Version: ${result.currentVersion}\n\nTradingBook is running the latest version.`);
+          showNotification(`✅ You're up to date!\n\nCurrent Version: ${result.currentVersion}\n\nTradingBook is running the latest version.`, 'success');
         }
       }
     } catch (error) {
       console.error('Failed to check for updates:', error);
-      alert(`❌ Failed to check for updates.\n\nPlease check your internet connection or visit:\nhttps://github.com/appatalks/TradingBook/releases`);
+      showNotification(`❌ Failed to check for updates.\n\nPlease check your internet connection or visit:\nhttps://github.com/appatalks/TradingBook/releases`, 'error');
     }
   };
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Settings</h1>
+      
+      {/* Notification */}
+      {notification && (
+        <div className={`p-4 rounded-md ${
+          notification.type === 'success' ? 'bg-green-100 border border-green-400 text-green-700' :
+          notification.type === 'error' ? 'bg-red-100 border border-red-400 text-red-700' :
+          'bg-blue-100 border border-blue-400 text-blue-700'
+        }`}>
+          <div className="flex justify-between items-center">
+            <div className="flex-1 whitespace-pre-line">{notification.message}</div>
+            <button 
+              onClick={() => setNotification(null)}
+              className="ml-4 text-gray-400 hover:text-gray-600"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
+      
+      {/* Confirmation Dialog */}
+      {confirmDialog && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-xl max-w-md w-full mx-4">
+            <p className="text-gray-900 dark:text-white mb-6 whitespace-pre-line">{confirmDialog.message}</p>
+            <div className="flex justify-end space-x-4">
+              <button
+                onClick={() => setConfirmDialog(null)}
+                className="px-4 py-2 bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-400 dark:hover:bg-gray-500"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  confirmDialog.onConfirm();
+                  setConfirmDialog(null);
+                }}
+                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+              >
+                Continue
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {isLoading ? (
         <div className="flex justify-center items-center py-12">

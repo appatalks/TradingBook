@@ -87,6 +87,7 @@ declare global {
       
       // Database operations
       saveTrade: (trade: Omit<Trade, 'id'>) => Promise<Trade>;
+      saveTradesBulk: (trades: Omit<Trade, 'id'>[]) => Promise<Trade[]>;
       getTrades: (filters: TradeFilter) => Promise<Trade[]>;
       updateTrade: (id: number, trade: Partial<Trade>) => Promise<Trade>;
       deleteTrade: (id: number) => Promise<{ deleted: number }>;
@@ -110,10 +111,13 @@ declare global {
       
       // CSV Import/Export
       exportCsv: () => Promise<{ success: boolean; path?: string; count?: number; error?: string }>;
-      importCsv: () => Promise<{ success: boolean; path?: string; imported?: number; errors?: number; errorDetails?: string[]; error?: string }>;
+      importCsv: () => Promise<{ success: boolean; path?: string; imported?: number; errors?: number; errorDetails?: string[]; error?: string; autoMatched?: boolean }>;
       
       // P&L Matching
       matchPnL: () => Promise<{ success: boolean; message?: string; error?: string }>;
+      
+      // System paths
+      getDownloadsPath: () => Promise<{ success: boolean; path?: string; error?: string }>;
       
       // Update checking
       checkForUpdates: () => Promise<{ 
@@ -132,6 +136,14 @@ declare global {
       
       // Yahoo Finance API
       fetchStockData: (symbol: string) => Promise<{ success: boolean; data?: any[]; error?: string }>;
+      
+      // Database refresh events (to avoid window reloads)
+      onDatabasePurged: (callback: (event: any) => void) => void;
+      onDatabaseRestored: (callback: (event: any) => void) => void;
+      onDatabaseError: (callback: (event: any, error: string) => void) => void;
+      
+      // Cleanup function
+      removeDatabaseListeners: () => void;
     };
   }
 }

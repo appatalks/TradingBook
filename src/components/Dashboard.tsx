@@ -56,6 +56,7 @@ const Dashboard: React.FC<DashboardProps> = ({ trades }) => {
     try {
       // Format date as YYYY-MM-DD for SQLite filtering
       const dateString = date.toLocaleDateString('en-CA'); // Returns YYYY-MM-DD format
+      console.log('Dashboard: Clicked day with dateString:', dateString);
       
       // Find the calendar data for this day first
       const dayData = calendarData.find(d => {
@@ -70,15 +71,24 @@ const Dashboard: React.FC<DashboardProps> = ({ trades }) => {
         endDate: dateString
       });
       
-      // Load daily note for this day
-      const note = await window.electronAPI.getDailyNote(dateString);
-      setDailyNote(note);
-      setNoteText(note?.notes || '');
+      console.log('Dashboard: Found trades for day:', tradesForDay.length);
+      
+      // Load daily note for this day with better error handling
+      try {
+        const note = await window.electronAPI.getDailyNote(dateString);
+        console.log('Dashboard: Retrieved daily note:', note);
+        setDailyNote(note);
+        setNoteText(note?.notes || '');
+      } catch (noteError) {
+        console.error('Dashboard: Failed to load daily note:', noteError);
+        setDailyNote(null);
+        setNoteText('');
+      }
       
       setDayTrades(tradesForDay);
       setSelectedDay({ date, data: dayData || null });
     } catch (error) {
-      console.error('Failed to load day data:', error);
+      console.error('Dashboard: Failed to load day data:', error);
       setDayTrades([]);
       setDailyNote(null);
       setNoteText('');
@@ -100,20 +110,27 @@ const Dashboard: React.FC<DashboardProps> = ({ trades }) => {
     try {
       setIsSavingNote(true);
       const dateString = selectedDay.date.toLocaleDateString('en-CA');
+      console.log('Dashboard: Saving note for date:', dateString, 'Note text length:', noteText.length);
       
       if (noteText.trim()) {
         // Save or update note
-        await window.electronAPI.saveDailyNote(dateString, noteText.trim());
+        const saveResult = await window.electronAPI.saveDailyNote(dateString, noteText.trim());
+        console.log('Dashboard: Save note result:', saveResult);
+        
         // Reload the note to get updated data
         const updatedNote = await window.electronAPI.getDailyNote(dateString);
+        console.log('Dashboard: Updated note after save:', updatedNote);
         setDailyNote(updatedNote);
       } else if (dailyNote) {
         // Delete note if text is empty and note exists
-        await window.electronAPI.deleteDailyNote(dateString);
+        console.log('Dashboard: Deleting empty note for date:', dateString);
+        const deleteResult = await window.electronAPI.deleteDailyNote(dateString);
+        console.log('Dashboard: Delete note result:', deleteResult);
         setDailyNote(null);
       }
     } catch (error) {
-      console.error('Failed to save daily note:', error);
+      console.error('Dashboard: Failed to save daily note:', error);
+      alert('Failed to save note. Please try again.');
     } finally {
       setIsSavingNote(false);
     }

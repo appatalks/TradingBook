@@ -299,6 +299,36 @@ class DatabaseManager {
           maxDrawdown: 0 // TODO: Implement max drawdown calculation
         };
         
+        // Add top 10 winners and losers
+        try {
+          const topWinnersStmt = this.db.prepare(`
+            SELECT symbol, quantity, entry_price, exit_price, pnl, entry_date, exit_date 
+            FROM trades 
+            WHERE pnl IS NOT NULL AND pnl > 0
+            ${dateRange.startDate ? 'AND DATE(entry_date) >= DATE(?)' : ''}
+            ${dateRange.endDate ? 'AND DATE(entry_date) <= DATE(?)' : ''}
+            ORDER BY pnl DESC 
+            LIMIT 10
+          `);
+          
+          const topLosersStmt = this.db.prepare(`
+            SELECT symbol, quantity, entry_price, exit_price, pnl, entry_date, exit_date 
+            FROM trades 
+            WHERE pnl IS NOT NULL AND pnl < 0
+            ${dateRange.startDate ? 'AND DATE(entry_date) >= DATE(?)' : ''}
+            ${dateRange.endDate ? 'AND DATE(entry_date) <= DATE(?)' : ''}
+            ORDER BY pnl ASC 
+            LIMIT 10
+          `);
+          
+          metrics.topWinners = topWinnersStmt.all(...params);
+          metrics.topLosers = topLosersStmt.all(...params);
+        } catch (topError) {
+          console.error('Error getting top winners/losers:', topError);
+          metrics.topWinners = [];
+          metrics.topLosers = [];
+        }
+        
         debugLogger.log('Processed metrics:', metrics);
         resolve(metrics);
       } catch (err) {
@@ -349,6 +379,7 @@ class DatabaseManager {
   saveDailyNote(date, notes) {
     return new Promise((resolve, reject) => {
       try {
+        debugLogger.log('Database saveDailyNote called with date:', date, 'notes length:', notes.length);
         // Date should be in YYYY-MM-DD format
         const stmt = this.db.prepare(`
           INSERT OR REPLACE INTO daily_notes (date, notes, updated_at)
@@ -356,9 +387,11 @@ class DatabaseManager {
         `);
         
         const result = stmt.run(date, notes);
+        debugLogger.log('Database saveDailyNote result:', result);
         resolve({ success: true, id: result.lastInsertRowid });
       } catch (err) {
         console.error('Database saveDailyNote error:', err);
+        debugLogger.log('Database saveDailyNote error details:', err.message);
         reject(err);
       }
     });
@@ -367,11 +400,14 @@ class DatabaseManager {
   getDailyNote(date) {
     return new Promise((resolve, reject) => {
       try {
+        debugLogger.log('Database getDailyNote called with date:', date);
         const stmt = this.db.prepare('SELECT * FROM daily_notes WHERE date = ?');
         const note = stmt.get(date);
+        debugLogger.log('Database getDailyNote result:', note);
         resolve(note);
       } catch (err) {
         console.error('Database getDailyNote error:', err);
+        debugLogger.log('Database getDailyNote error details:', err.message);
         reject(err);
       }
     });
@@ -380,11 +416,14 @@ class DatabaseManager {
   deleteDailyNote(date) {
     return new Promise((resolve, reject) => {
       try {
+        debugLogger.log('Database deleteDailyNote called with date:', date);
         const stmt = this.db.prepare('DELETE FROM daily_notes WHERE date = ?');
         const result = stmt.run(date);
+        debugLogger.log('Database deleteDailyNote result:', result);
         resolve({ deleted: result.changes });
       } catch (err) {
         console.error('Database deleteDailyNote error:', err);
+        debugLogger.log('Database deleteDailyNote error details:', err.message);
         reject(err);
       }
     });
