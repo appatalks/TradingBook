@@ -26,7 +26,7 @@ If applicable, add screenshots to help explain your problem.
 
 ## 💻 Environment
 - **OS**: [e.g. Ubuntu 22.04, Windows 11, macOS 13]
-- **TradingBook Version**: [e.g. 1.0.0]
+- **TradingBook Version**: [e.g. 1.0.1]
 - **Node.js Version**: [e.g. 18.17.0] (if building from source)
 - **Installation Method**: [AppImage / Built from source]
 

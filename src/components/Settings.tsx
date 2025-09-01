@@ -515,7 +515,7 @@ The application will reload momentarily to refresh all data.`, 'success');
               <span className="font-medium">Database Location:</span> ~/.config/TradingBook/trades.db
             </p>
             <p>
-              <span className="font-medium">Version:</span> 1.0.0
+              <span className="font-medium">Version:</span> 1.0.1
             </p>
             <p>
               <span className="font-medium">Last Backup:</span> Manual backups available below
@@ -562,7 +562,7 @@ The application will reload momentarily to refresh all data.`, 'success');
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">About TradingBook</h2>
           <div className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
             <p>
-              <span className="font-medium">Version:</span> 1.0.0
+              <span className="font-medium">Version:</span> 1.0.1
             </p>
             <p>
               <span className="font-medium">Build:</span> Electron Desktop App

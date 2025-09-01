@@ -193,10 +193,10 @@ if [ "$WINDOWS_ONLY" != true ]; then
     npm run build-appimage
 
     # Verify AppImage creation
-    if [ -f "dist/TradingBook-1.0.0.AppImage" ]; then
-        APPIMAGE_SIZE=$(du -h "dist/TradingBook-1.0.0.AppImage" | cut -f1)
+    if [ -f "dist/TradingBook-1.0.1.AppImage" ]; then
+        APPIMAGE_SIZE=$(du -h "dist/TradingBook-1.0.1.AppImage" | cut -f1)
         print_success "Linux AppImage created successfully (${APPIMAGE_SIZE})"
-        chmod +x "dist/TradingBook-1.0.0.AppImage"
+        chmod +x "dist/TradingBook-1.0.1.AppImage"
         print_success "AppImage made executable"
     else
         print_error "Linux AppImage creation failed"
@@ -220,8 +220,8 @@ fi
     npm run build-windows-portable
 
     # Verify Windows EXE creation
-    if [ -f "dist/TradingBook 1.0.0.exe" ]; then
-        EXE_SIZE=$(du -h "dist/TradingBook 1.0.0.exe" | cut -f1)
+    if [ -f "dist/TradingBook 1.0.1.exe" ]; then
+        EXE_SIZE=$(du -h "dist/TradingBook 1.0.1.exe" | cut -f1)
         print_success "Windows EXE created successfully (${EXE_SIZE})"
     else
         print_error "Windows EXE creation failed"
@@ -237,10 +237,10 @@ if [ "$LINUX_ONLY" != true ]; then
 
     if [ -d "dist/win-unpacked" ]; then
         print_status "Creating ZIP archive of Windows directory build..."
-        cd dist && zip -r "TradingBook-1.0.0-Windows.zip" win-unpacked/ >/dev/null 2>&1 && cd ..
+        cd dist && zip -r "TradingBook-1.0.1-Windows.zip" win-unpacked/ >/dev/null 2>&1 && cd ..
         
-        if [ -f "dist/TradingBook-1.0.0-Windows.zip" ]; then
-            ZIP_SIZE=$(du -h "dist/TradingBook-1.0.0-Windows.zip" | cut -f1)
+        if [ -f "dist/TradingBook-1.0.1-Windows.zip" ]; then
+            ZIP_SIZE=$(du -h "dist/TradingBook-1.0.1-Windows.zip" | cut -f1)
             print_success "Windows ZIP archive created successfully (${ZIP_SIZE})"
         else
             print_warning "Windows ZIP archive creation failed"
@@ -267,14 +267,14 @@ print_status "Verifying build artifacts..."
 TOTAL_SIZE=0
 
 # Linux AppImage verification
-if [ "$WINDOWS_ONLY" != true ] && [ -f "dist/TradingBook-1.0.0.AppImage" ]; then
-    APPIMAGE_SIZE_BYTES=$(stat -c%s "dist/TradingBook-1.0.0.AppImage")
+if [ "$WINDOWS_ONLY" != true ] && [ -f "dist/TradingBook-1.0.1.AppImage" ]; then
+    APPIMAGE_SIZE_BYTES=$(stat -c%s "dist/TradingBook-1.0.1.AppImage")
     APPIMAGE_SIZE_MB=$((APPIMAGE_SIZE_BYTES / 1024 / 1024))
     TOTAL_SIZE=$((TOTAL_SIZE + APPIMAGE_SIZE_BYTES))
     print_success "✅ Linux AppImage: ${APPIMAGE_SIZE_MB}MB"
     
     # Verify AppImage format
-    if file "dist/TradingBook-1.0.0.AppImage" | grep -q "AppImage"; then
+    if file "dist/TradingBook-1.0.1.AppImage" | grep -q "AppImage"; then
         print_success "✅ AppImage format verification passed"
     else
         print_warning "⚠️ AppImage format verification failed"
@@ -284,14 +284,14 @@ elif [ "$WINDOWS_ONLY" != true ]; then
 fi
 
 # Windows EXE verification
-if [ "$LINUX_ONLY" != true ] && [ -f "dist/TradingBook 1.0.0.exe" ]; then
-    EXE_SIZE_BYTES=$(stat -c%s "dist/TradingBook 1.0.0.exe")
+if [ "$LINUX_ONLY" != true ] && [ -f "dist/TradingBook 1.0.1.exe" ]; then
+    EXE_SIZE_BYTES=$(stat -c%s "dist/TradingBook 1.0.1.exe")
     EXE_SIZE_MB=$((EXE_SIZE_BYTES / 1024 / 1024))
     TOTAL_SIZE=$((TOTAL_SIZE + EXE_SIZE_BYTES))
     print_success "✅ Windows EXE: ${EXE_SIZE_MB}MB"
     
     # Verify EXE format
-    if file "dist/TradingBook 1.0.0.exe" | grep -q "PE32"; then
+    if file "dist/TradingBook 1.0.1.exe" | grep -q "PE32"; then
         print_success "✅ Windows EXE format verification passed"
     else
         print_warning "⚠️ Windows EXE format verification failed"
@@ -301,8 +301,8 @@ elif [ "$LINUX_ONLY" != true ]; then
 fi
 
 # Windows ZIP verification
-if [ "$LINUX_ONLY" != true ] && [ -f "dist/TradingBook-1.0.0-Windows.zip" ]; then
-    ZIP_SIZE_BYTES=$(stat -c%s "dist/TradingBook-1.0.0-Windows.zip")
+if [ "$LINUX_ONLY" != true ] && [ -f "dist/TradingBook-1.0.1-Windows.zip" ]; then
+    ZIP_SIZE_BYTES=$(stat -c%s "dist/TradingBook-1.0.1-Windows.zip")
     ZIP_SIZE_MB=$((ZIP_SIZE_BYTES / 1024 / 1024))
     TOTAL_SIZE=$((TOTAL_SIZE + ZIP_SIZE_BYTES))
     print_success "✅ Windows ZIP: ${ZIP_SIZE_MB}MB"
@@ -315,9 +315,9 @@ TOTAL_SIZE_MB=$((TOTAL_SIZE / 1024 / 1024))
 print_header "Build Completed Successfully!"
 
 echo -e "${GREEN}📦 Distribution Files Created:${NC}"
-echo -e "   🐧 ${BLUE}TradingBook-1.0.0.AppImage${NC} - Linux portable executable"
-echo -e "   🪟 ${BLUE}TradingBook 1.0.0.exe${NC} - Windows portable executable"
-echo -e "   📁 ${BLUE}TradingBook-1.0.0-Windows.zip${NC} - Windows directory structure"
+echo -e "   🐧 ${BLUE}TradingBook-1.0.1.AppImage${NC} - Linux portable executable"
+echo -e "   🪟 ${BLUE}TradingBook 1.0.1.exe${NC} - Windows portable executable"
+echo -e "   📁 ${BLUE}TradingBook-1.0.1-Windows.zip${NC} - Windows directory structure"
 echo ""
 echo -e "${PURPLE}📊 Total Distribution Size: ${TOTAL_SIZE_MB}MB${NC}"
 echo ""
@@ -328,10 +328,10 @@ echo ""
 print_header "Testing Suggestions"
 
 echo -e "${YELLOW}Linux Testing:${NC}"
-echo -e "   ./dist/TradingBook-1.0.0.AppImage"
+echo -e "   ./dist/TradingBook-1.0.1.AppImage"
 echo ""
 echo -e "${YELLOW}Windows Testing:${NC}"
-echo -e "   • Copy 'dist/TradingBook 1.0.0.exe' to Windows machine"
+echo -e "   • Copy 'dist/TradingBook 1.0.1.exe' to Windows machine"
 echo -e "   • Double-click to run (no installation required)"
 echo ""
 echo -e "${YELLOW}Development Testing:${NC}"
