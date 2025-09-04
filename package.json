@@ -115,7 +115,9 @@
       "build/static/**/*",
       "build/manifest.json",
       "build/favicon.ico",
-      "build/asset-manifest.json"
+      "build/asset-manifest.json",
+      "src/database/**/*",
+      "node_modules/better-sqlite3/**/*"
     ],
     "linux": {
       "target": "AppImage",

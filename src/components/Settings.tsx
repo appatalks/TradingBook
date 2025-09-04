@@ -22,6 +22,8 @@ const Settings: React.FC<SettingsProps> = ({ darkMode, onToggleDarkMode }) => {
   const [showPurgeDialog, setShowPurgeDialog] = useState(false);
   const [notification, setNotification] = useState<{message: string; type: 'success' | 'error' | 'info'} | null>(null);
   const [confirmDialog, setConfirmDialog] = useState<{message: string; onConfirm: () => void} | null>(null);
+  const [debugStatus, setDebugStatus] = useState<any>(null);
+  const [showDebugInfo, setShowDebugInfo] = useState(false);
 
   const showNotification = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
     setNotification({ message, type });
@@ -231,6 +233,19 @@ The application will reload momentarily to refresh all data.`, 'success');
     } catch (error) {
       console.error('Failed to check for updates:', error);
       showNotification(`❌ Failed to check for updates.\n\nPlease check your internet connection or visit:\nhttps://github.com/appatalks/TradingBook/releases`, 'error');
+    }
+  };
+
+  const handleGetDebugStatus = async () => {
+    try {
+      const status = await window.electronAPI.getDatabaseStatus();
+      setDebugStatus(status);
+      setShowDebugInfo(true);
+    } catch (error) {
+      setNotification({
+        message: `Error getting debug status: ${error}`,
+        type: 'error'
+      });
     }
   };
 
@@ -537,6 +552,12 @@ The application will reload momentarily to refresh all data.`, 'success');
               Restore from Backup
             </button>
             <button
+              onClick={handleGetDebugStatus}
+              className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500"
+            >
+              Debug Status
+            </button>
+            <button
               onClick={() => setShowPurgeDialog(true)}
               className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
             >
@@ -606,6 +627,59 @@ The application will reload momentarily to refresh all data.`, 'success');
           </div>
         </div>
       </div>
+
+      {/* Debug Info Dialog */}
+      {showDebugInfo && debugStatus && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-96 overflow-y-auto">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Database Debug Status</h3>
+            <div className="space-y-3 text-sm">
+              <div>
+                <span className="font-medium text-gray-700 dark:text-gray-300">Database Status: </span>
+                <span className={debugStatus.initialized ? "text-green-600" : "text-red-600"}>
+                  {debugStatus.initialized ? "Initialized" : "Not Initialized"}
+                </span>
+              </div>
+              <div>
+                <span className="font-medium text-gray-700 dark:text-gray-300">Database Path: </span>
+                <span className="text-gray-600 dark:text-gray-400 font-mono text-xs">{debugStatus.dbPath}</span>
+              </div>
+              <div>
+                <span className="font-medium text-gray-700 dark:text-gray-300">Database Manager: </span>
+                <span className={debugStatus.managerLoaded ? "text-green-600" : "text-red-600"}>
+                  {debugStatus.managerLoaded ? "Loaded" : "Not Loaded"}
+                </span>
+              </div>
+              <div>
+                <span className="font-medium text-gray-700 dark:text-gray-300">Schema Loaded: </span>
+                <span className={debugStatus.schemaLoaded ? "text-green-600" : "text-red-600"}>
+                  {debugStatus.schemaLoaded ? "Yes" : "No"}
+                </span>
+              </div>
+              {debugStatus.error && (
+                <div>
+                  <span className="font-medium text-red-600">Error: </span>
+                  <span className="text-red-600 font-mono text-xs">{debugStatus.error}</span>
+                </div>
+              )}
+              {debugStatus.lastInitAttempt && (
+                <div>
+                  <span className="font-medium text-gray-700 dark:text-gray-300">Last Init Attempt: </span>
+                  <span className="text-gray-600 dark:text-gray-400">{new Date(debugStatus.lastInitAttempt).toLocaleString()}</span>
+                </div>
+              )}
+            </div>
+            <div className="flex justify-end mt-6">
+              <button
+                onClick={() => setShowDebugInfo(false)}
+                className="px-4 py-2 bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-400 dark:hover:bg-gray-500"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Purge Database Warning Dialog */}
       {showPurgeDialog && (

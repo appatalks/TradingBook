@@ -38,6 +38,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Debug Logger
   setDebugEnabled: (enabled) => ipcRenderer.invoke('set-debug-enabled', enabled),
   
+  // Database status debugging
+  getDatabaseStatus: () => ipcRenderer.invoke('get-database-status'),
+  
   // P&L Matching
   matchPnL: () => ipcRenderer.invoke('match-pnl'),
   

@@ -4,7 +4,29 @@ const isDev = require('electron-is-dev');
 const fs = require('fs');
 const http = require('http');
 const url = require('url');
-const DatabaseManager = require('../src/database/Database');
+
+// Handle database require path for both dev and production
+let DatabaseManager;
+try {
+  // Try the relative path first (works in development)
+  DatabaseManager = require('../src/database/Database');
+} catch (error) {
+  try {
+    // Try absolute path for production builds
+    const databasePath = isDev 
+      ? path.join(__dirname, '../src/database/Database')
+      : path.join(process.resourcesPath, 'app.asar', 'src/database/Database');
+    DatabaseManager = require(databasePath);
+  } catch (fallbackError) {
+    console.error('Failed to load DatabaseManager:', error.message, fallbackError.message);
+    // Last resort: try from app resources
+    try {
+      DatabaseManager = require(path.join(__dirname, '..', 'src', 'database', 'Database'));
+    } catch (lastError) {
+      console.error('All DatabaseManager require attempts failed:', lastError.message);
+    }
+  }
+}
 
 // Create debug logger directly to avoid import path issues
 const debugLogger = {
@@ -281,8 +303,19 @@ async function createWindow() {
 // Initialize database
 function initDatabase() {
   try {
+    debugLogger.log('Starting database initialization...');
+    
+    if (!DatabaseManager) {
+      throw new Error('DatabaseManager class not loaded - check require path');
+    }
+    
     db = new DatabaseManager();
     debugLogger.log('Database initialized successfully');
+    
+    // Test database connection
+    if (!db || !db.db) {
+      throw new Error('Database connection failed - db object is null');
+    }
     
     // Sync database debug logger with current settings
     if (db && db.setDebugEnabled) {
@@ -313,12 +346,26 @@ function initDatabase() {
     migrateTimezoneIssues();
   } catch (error) {
     console.error('Failed to initialize database:', error);
+    debugLogger.log('Database initialization failed:', error.message);
+    
+    // Set db to null to ensure error handlers work correctly
+    db = null;
+    
+    // Try to show error to user
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      const errorMessage = `Database initialization failed: ${error.message}\n\nPlease restart the application or contact support.`;
+      dialog.showErrorBox('Database Error', errorMessage);
+    }
   }
 }
 
 // IPC handlers for database operations
 ipcMain.handle('save-trade', async (event, trade) => {
   try {
+    if (!db) {
+      throw new Error('Database not initialized - cannot save trade');
+    }
+    
     const result = await db.saveTrade(trade);
     let pnlMatchingRan = false;
     
@@ -365,6 +412,10 @@ ipcMain.handle('save-trade', async (event, trade) => {
 // Bulk trade save handler to prevent excessive re-renders during CSV import
 ipcMain.handle('save-trades-bulk', async (event, trades) => {
   try {
+    if (!db) {
+      throw new Error('Database not initialized - cannot save trades bulk');
+    }
+    
     const savedTrades = [];
     let shouldRunPnLMatching = false;
     
@@ -411,6 +462,9 @@ ipcMain.handle('save-trades-bulk', async (event, trades) => {
 
 ipcMain.handle('get-trades', async (event, filters) => {
   try {
+    if (!db) {
+      throw new Error('Database not initialized - cannot get trades');
+    }
     return await db.getTrades(filters);
   } catch (error) {
     console.error('Failed to get trades:', error);
@@ -420,6 +474,9 @@ ipcMain.handle('get-trades', async (event, filters) => {
 
 ipcMain.handle('update-trade', async (event, id, updates) => {
   try {
+    if (!db) {
+      throw new Error('Database not initialized - cannot update trade');
+    }
     return await db.updateTrade(id, updates);
   } catch (error) {
     console.error('Failed to update trade:', error);
@@ -429,6 +486,9 @@ ipcMain.handle('update-trade', async (event, id, updates) => {
 
 ipcMain.handle('delete-trade', async (event, id) => {
   try {
+    if (!db) {
+      throw new Error('Database not initialized - cannot delete trade');
+    }
     return await db.deleteTrade(id);
   } catch (error) {
     console.error('Failed to delete trade:', error);
@@ -438,6 +498,9 @@ ipcMain.handle('delete-trade', async (event, id) => {
 
 ipcMain.handle('get-performance-metrics', async (event, dateRange) => {
   try {
+    if (!db) {
+      throw new Error('Database not initialized - cannot get performance metrics');
+    }
     return await db.getPerformanceMetrics(dateRange);
   } catch (error) {
     console.error('Failed to get performance metrics:', error);
@@ -447,6 +510,9 @@ ipcMain.handle('get-performance-metrics', async (event, dateRange) => {
 
 ipcMain.handle('get-calendar-data', async (event, month, year) => {
   try {
+    if (!db) {
+      throw new Error('Database not initialized - cannot get calendar data');
+    }
     return await db.getCalendarData(month, year);
   } catch (error) {
     console.error('Failed to get calendar data:', error);
@@ -1288,6 +1354,35 @@ ipcMain.handle('get-downloads-path', async (event) => {
   }
 });
 
+// Add IPC handler for debugging database status
+ipcMain.handle('get-database-status', async (event) => {
+  try {
+    const status = {
+      initialized: !!db,
+      connected: !!(db && db.db),
+      dbPath: db ? db.getDatabasePath() : null,
+      userDataPath: app.getPath('userData'),
+      platform: process.platform,
+      isDev: require('electron-is-dev')
+    };
+    
+    // Test a simple query if database is available
+    if (db && db.db) {
+      try {
+        db.db.prepare('SELECT 1 as test').get();
+        status.queryTest = 'SUCCESS';
+      } catch (queryError) {
+        status.queryTest = `FAILED: ${queryError.message}`;
+      }
+    }
+    
+    return { success: true, status };
+  } catch (error) {
+    console.error('Failed to get database status:', error);
+    return { success: false, error: error.message };
+  }
+});
+
 // Add IPC handler for debug logger control
 ipcMain.handle('set-debug-enabled', async (event, enabled) => {
   try {
@@ -1305,7 +1400,19 @@ ipcMain.handle('set-debug-enabled', async (event, enabled) => {
 });
 
 app.whenReady().then(async () => {
+  debugLogger.log('App ready, starting initialization...');
   initDatabase();
+  
+  // Wait a bit to ensure database is initialized
+  await new Promise(resolve => setTimeout(resolve, 1000));
+  
+  // Test database connection before creating window
+  if (db && db.db) {
+    debugLogger.log('Database initialization confirmed before window creation');
+  } else {
+    debugLogger.log('WARNING: Database not initialized properly before window creation');
+  }
+  
   await createWindow();
 });
 

@@ -134,6 +134,9 @@ declare global {
       // Debug logging
       setDebugEnabled: (enabled: boolean) => Promise<{ success: boolean; error?: string }>;
       
+      // Database status debugging
+      getDatabaseStatus: () => Promise<{ success: boolean; status?: any; error?: string }>;
+      
       // Yahoo Finance API
       fetchStockData: (symbol: string) => Promise<{ success: boolean; data?: any[]; error?: string }>;
       
