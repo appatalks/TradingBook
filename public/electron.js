@@ -162,14 +162,43 @@ async function createWindow() {
   const primaryDisplay = screen.getPrimaryDisplay();
   const { width: screenWidth, height: screenHeight } = primaryDisplay.workAreaSize;
   
-  // Calculate optimal window size (75% of screen size, with reasonable minimums)
-  const windowWidth = Math.max(1400, Math.min(screenWidth * 0.8, 1600));
-  const windowHeight = Math.max(1100, Math.min(screenHeight * 0.85, 1300));
+  // Try to load saved window bounds, otherwise use calculated optimal size
+  let windowBounds = {
+    width: Math.floor(Math.max(1450, Math.min(screenWidth * 0.85, 1800))),
+    height: Math.floor(Math.max(1000, Math.min(screenHeight * 0.85, 1200)))
+  };
+  
+  // Simplified settings loading to avoid async issues
+  try {
+    const settingsPath = getSettingsPath();
+    if (fs.existsSync(settingsPath)) {
+      const settingsData = fs.readFileSync(settingsPath, 'utf8');
+      const settings = JSON.parse(settingsData);
+      if (settings && settings.windowBounds) {
+        const saved = settings.windowBounds;
+        // Validate saved bounds are numeric and reasonable
+        if (typeof saved.width === 'number' && typeof saved.height === 'number' &&
+            saved.width >= 1400 && saved.height >= 950 && 
+            saved.width <= screenWidth && saved.height <= screenHeight &&
+            saved.width > 0 && saved.height > 0) {
+          windowBounds = {
+            width: Math.floor(saved.width),
+            height: Math.floor(saved.height)
+          };
+          debugLogger.log('Loaded saved window bounds:', windowBounds);
+        } else {
+          debugLogger.log('Saved window bounds invalid, using defaults:', saved);
+        }
+      }
+    }
+  } catch (error) {
+    debugLogger.log('Could not load saved window bounds, using defaults:', error.message);
+  }
   
   mainWindow = new BrowserWindow({
-    width: windowWidth,
-    height: windowHeight,
-    minWidth: 1300,
+    width: windowBounds.width,
+    height: windowBounds.height,
+    minWidth: 1400,
     minHeight: 950,
     webPreferences: {
       nodeIntegration: false,
@@ -182,7 +211,9 @@ async function createWindow() {
     icon: path.join(__dirname, '../assets/icon.png'),
     show: false,
     center: true, // Center the window on screen
-    title: 'TradingBook - Trading Journal'
+    title: 'TradingBook - Trading Journal',
+    titleBarStyle: 'default',
+    autoHideMenuBar: false // Show menu bar for better UX
   });
 
   let startUrl;
@@ -226,6 +257,43 @@ async function createWindow() {
   mainWindow.once('ready-to-show', () => {
     mainWindow.show();
     
+    // Ensure proper window sizing after content loads
+    setTimeout(() => {
+      try {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          // Get current content bounds and ensure window is sized appropriately
+          const currentBounds = mainWindow.getBounds();
+          const contentSize = mainWindow.getContentSize();
+          
+          // Validate that we got valid values
+          if (!contentSize || contentSize.length < 2 || 
+              typeof contentSize[0] !== 'number' || typeof contentSize[1] !== 'number') {
+            debugLogger.log('Invalid content size detected, skipping resize');
+            return;
+          }
+          
+          // If window is too small for dashboard content, resize it
+          if (contentSize[0] < 1400 || contentSize[1] < 900) {
+            const { screen } = require('electron');
+            const primaryDisplay = screen.getPrimaryDisplay();
+            const { width: screenWidth, height: screenHeight } = primaryDisplay.workAreaSize;
+            
+            const optimalWidth = Math.max(1450, Math.min(screenWidth * 0.85, 1800));
+            const optimalHeight = Math.max(1000, Math.min(screenHeight * 0.85, 1200));
+            
+            // Validate calculated values before setting
+            if (optimalWidth > 0 && optimalHeight > 0) {
+              mainWindow.setSize(Math.floor(optimalWidth), Math.floor(optimalHeight));
+              mainWindow.center();
+              debugLogger.log(`Window resized to optimal size: ${optimalWidth}x${optimalHeight}`);
+            }
+          }
+        }
+      } catch (error) {
+        debugLogger.log('Error in window sizing timeout:', error.message);
+      }
+    }, 1000);
+    
     // Simple check after a delay
     setTimeout(() => {
       debugLogger.log('Checking React mount status...');
@@ -241,6 +309,48 @@ async function createWindow() {
         debugLogger.log('Error checking React mount:', err.message);
       });
     }, 5000);
+  });
+
+  // Add DOM content loaded handler for additional sizing verification
+  mainWindow.webContents.on('dom-ready', () => {
+    debugLogger.log('DOM ready - verifying window size...');
+    
+    // Check if we need to adjust window size for content
+    setTimeout(() => {
+      try {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          const contentSize = mainWindow.getContentSize();
+          
+          // Validate content size before processing
+          if (!contentSize || contentSize.length < 2 || 
+              typeof contentSize[0] !== 'number' || typeof contentSize[1] !== 'number') {
+            debugLogger.log('Invalid content size in DOM ready handler');
+            return;
+          }
+          
+          debugLogger.log(`Current content size: ${contentSize[0]}x${contentSize[1]}`);
+          
+          // If content area is still too small, force resize
+          if (contentSize[0] < 1380 || contentSize[1] < 880) {
+            const { screen } = require('electron');
+            const primaryDisplay = screen.getPrimaryDisplay();
+            const { width: screenWidth, height: screenHeight } = primaryDisplay.workAreaSize;
+            
+            const newWidth = Math.max(1450, Math.min(screenWidth * 0.85, 1800));
+            const newHeight = Math.max(1000, Math.min(screenHeight * 0.85, 1200));
+            
+            // Validate calculated values
+            if (newWidth > 0 && newHeight > 0) {
+              mainWindow.setSize(Math.floor(newWidth), Math.floor(newHeight));
+              mainWindow.center();
+              debugLogger.log(`Forced window resize after DOM ready: ${newWidth}x${newHeight}`);
+            }
+          }
+        }
+      } catch (error) {
+        debugLogger.log('Error in DOM ready timeout:', error.message);
+      }
+    }, 500);
   });
 
   // Prevent navigation to external URLs only
@@ -263,6 +373,57 @@ async function createWindow() {
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
+
+  // Save window bounds when resized or moved (simplified version with safety checks)
+  let saveWindowBoundsTimeout;
+  const saveWindowBounds = () => {
+    if (saveWindowBoundsTimeout) clearTimeout(saveWindowBoundsTimeout);
+    saveWindowBoundsTimeout = setTimeout(() => {
+      try {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          const bounds = mainWindow.getBounds();
+          
+          // Validate bounds object has required numeric properties
+          if (!bounds || typeof bounds.width !== 'number' || typeof bounds.height !== 'number' ||
+              bounds.width <= 0 || bounds.height <= 0) {
+            debugLogger.log('Invalid bounds detected, skipping save:', bounds);
+            return;
+          }
+          
+          const settingsPath = getSettingsPath();
+          let currentSettings = getDefaultSettings();
+          
+          // Load existing settings if available
+          if (fs.existsSync(settingsPath)) {
+            const settingsData = fs.readFileSync(settingsPath, 'utf8');
+            currentSettings = { ...currentSettings, ...JSON.parse(settingsData) };
+          }
+          
+          // Update with new window bounds (ensure integer values)
+          const updatedSettings = { 
+            ...currentSettings, 
+            windowBounds: { 
+              width: Math.floor(bounds.width), 
+              height: Math.floor(bounds.height) 
+            } 
+          };
+          
+          // Save settings
+          const settingsDir = path.dirname(settingsPath);
+          if (!fs.existsSync(settingsDir)) {
+            fs.mkdirSync(settingsDir, { recursive: true });
+          }
+          fs.writeFileSync(settingsPath, JSON.stringify(updatedSettings, null, 2), 'utf8');
+          debugLogger.log('Window bounds saved successfully:', { width: bounds.width, height: bounds.height });
+        }
+      } catch (error) {
+        debugLogger.log('Error saving window bounds:', error.message);
+      }
+    }, 1000); // Debounce saves by 1 second
+  };
+
+  mainWindow.on('resize', saveWindowBounds);
+  mainWindow.on('move', saveWindowBounds);
 
   // Create application menu
   const template = [
