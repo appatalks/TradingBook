@@ -37,7 +37,10 @@ const Settings: React.FC<SettingsProps> = ({ darkMode, onToggleDarkMode }) => {
 
   useEffect(() => {
     loadSettings();
-    loadDatabasePath();
+    // Load database path after a short delay to ensure the main process is ready
+    setTimeout(() => {
+      loadDatabasePath();
+    }, 100);
   }, []);
 
   const loadSettings = async () => {
@@ -60,15 +63,24 @@ const Settings: React.FC<SettingsProps> = ({ darkMode, onToggleDarkMode }) => {
   const loadDatabasePath = async () => {
     try {
       if (window.electronAPI) {
+        debugLogger.log('Loading database path...');
         const result = await window.electronAPI.getDatabaseStatus();
+        debugLogger.log('Database status result:', result);
         if (result.success && result.status.dbPath) {
+          debugLogger.log('Setting database path to:', result.status.dbPath);
           setDatabasePath(result.status.dbPath);
+          // Force a re-render to ensure the UI updates
+          setTimeout(() => {
+            setDatabasePath(result.status.dbPath);
+          }, 50);
         } else {
+          debugLogger.log('Failed to get database path:', result);
           setDatabasePath('Error loading database path');
         }
       }
     } catch (error) {
       console.error('Failed to get database path:', error);
+      debugLogger.log('Database path loading error:', error);
       setDatabasePath('Error loading database path');
     }
   };
@@ -547,6 +559,13 @@ The application will reload momentarily to refresh all data.`, 'success');
           <div className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
             <p>
               <span className="font-medium">Database Location:</span> {databasePath}
+              <button
+                onClick={loadDatabasePath}
+                className="ml-2 px-2 py-1 text-xs bg-gray-200 dark:bg-gray-600 rounded hover:bg-gray-300 dark:hover:bg-gray-500"
+                title="Refresh database path"
+              >
+                🔄
+              </button>
             </p>
             <p>
               <span className="font-medium">Version:</span> {packageJson.version}
