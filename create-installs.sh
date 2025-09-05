@@ -138,6 +138,7 @@ show_help() {
     echo "  5. Create Linux AppImage (~113MB)"
     echo "  6. Create Windows portable EXE (~294MB)"
     echo "  7. Create Windows ZIP archive (~120MB)"
+    echo "  8. Create Windows installer (~86MB)"
     echo ""
     echo "Total build time: ~5-10 minutes"
     echo "Total output size: ~500MB"
