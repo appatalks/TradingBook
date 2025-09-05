@@ -857,19 +857,60 @@ ipcMain.handle('purge-database', async (event) => {
     
     // Get the database path before closing
     const dbPath = db.getDatabasePath();
+    debugLogger.log('Database path to purge:', dbPath);
     
-    // Close current database connection
-    db.close();
-    
-    // Delete the entire database file
-    if (fs.existsSync(dbPath)) {
-      fs.unlinkSync(dbPath);
-      debugLogger.log('Database file deleted:', dbPath);
+    // Force WAL checkpoint to ensure all data is written to main database file
+    try {
+      if (db && db.db) {
+        db.db.exec('PRAGMA wal_checkpoint(FULL);');
+        debugLogger.log('WAL checkpoint completed');
+      }
+    } catch (walError) {
+      debugLogger.log('WAL checkpoint failed (database may be closed):', walError.message);
     }
     
+    // Close current database connection with proper cleanup
+    if (db) {
+      try {
+        db.close();
+        debugLogger.log('Database connection closed');
+      } catch (closeError) {
+        debugLogger.log('Error closing database (may already be closed):', closeError.message);
+      }
+    }
+    
+    // Wait a moment for file handles to be released
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
+    // Delete the database file and associated files
+    const filesToDelete = [
+      dbPath,
+      dbPath + '-wal',  // WAL file
+      dbPath + '-shm'   // Shared memory file
+    ];
+    
+    for (const filePath of filesToDelete) {
+      try {
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+          debugLogger.log('Deleted file:', filePath);
+        }
+      } catch (deleteError) {
+        debugLogger.log('Could not delete file (may not exist):', filePath, deleteError.message);
+      }
+    }
+    
+    // Wait another moment before reinitializing
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
     // Reinitialize database with fresh schema
-    db = new DatabaseManager();
-    debugLogger.log('Database reinitialized with fresh schema');
+    try {
+      db = new DatabaseManager();
+      debugLogger.log('Database reinitialized with fresh schema');
+    } catch (initError) {
+      debugLogger.log('Error reinitializing database:', initError.message);
+      throw initError;
+    }
     
     debugLogger.log('Complete database purge successful - all data cleared');
     
@@ -884,6 +925,7 @@ ipcMain.handle('purge-database', async (event) => {
     return { success: true };
   } catch (error) {
     console.error('Failed to purge database:', error);
+    debugLogger.log('Purge database error details:', error.message);
     
     // Try to reinitialize database if something went wrong
     try {
@@ -1518,13 +1560,17 @@ ipcMain.handle('get-downloads-path', async (event) => {
 // Add IPC handler for debugging database status
 ipcMain.handle('get-database-status', async (event) => {
   try {
+    const userDataPath = app.getPath('userData');
     const status = {
       initialized: !!db,
       connected: !!(db && db.db),
-      dbPath: db ? db.getDatabasePath() : null,
-      userDataPath: app.getPath('userData'),
+      dbPath: db ? db.getDatabasePath() : path.join(userDataPath, 'trades.db'),
+      userDataPath: userDataPath,
       platform: process.platform,
-      isDev: require('electron-is-dev')
+      isDev: require('electron-is-dev'),
+      platformDisplay: process.platform === 'win32' ? 'Windows' : 
+                      process.platform === 'darwin' ? 'macOS' : 
+                      process.platform === 'linux' ? 'Linux' : process.platform
     };
     
     // Test a simple query if database is available
@@ -1536,6 +1582,8 @@ ipcMain.handle('get-database-status', async (event) => {
         status.queryTest = `FAILED: ${queryError.message}`;
       }
     }
+    
+    debugLogger.log('Database status check:', status);
     
     return { success: true, status };
   } catch (error) {

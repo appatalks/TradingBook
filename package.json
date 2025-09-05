@@ -40,7 +40,9 @@
     "build-appimage": "npm run build && electron-builder --linux AppImage",
     "build-windows": "npm run build && electron-builder --win dir",
     "build-windows-portable": "npm run build && electron-builder --win portable",
-    "build-all": "npm run build && electron-builder --linux AppImage --win portable"
+    "build-windows-installer": "npm run build && electron-builder --win nsis",
+    "build-windows-both": "npm run build && electron-builder --win nsis portable",
+    "build-all": "npm run build && electron-builder --linux AppImage --win nsis portable"
   },
   "dependencies": {
     "better-sqlite3": "^12.2.0",
@@ -70,9 +72,6 @@
     "appId": "com.thetradersjournal.app",
     "productName": "TradingBook",
     "compression": "store",
-    "directories": {
-      "buildResources": "assets"
-    },
     "files": [
       "build/**/*",
       "!build/**/*.map",
@@ -126,7 +125,7 @@
     "win": {
       "target": [
         {
-          "target": "dir",
+          "target": "nsis",
           "arch": [
             "x64"
           ]
@@ -144,8 +143,31 @@
           ]
         }
       ],
+      "requestedExecutionLevel": "asInvoker",
+      "artifactName": "${productName} ${version}.${ext}",
       "signAndEditExecutable": false,
       "verifyUpdateCodeSignature": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "allowElevation": true,
+      "createDesktopShortcut": "always",
+      "createStartMenuShortcut": true,
+      "shortcutName": "TradingBook",
+      "displayLanguageSelector": false,
+      "installerLanguages": ["en_US"],
+      "language": "1033",
+      "multiLanguageInstaller": false,
+      "packElevateHelper": true,
+      "perMachine": false,
+      "runAfterFinish": true,
+      "menuCategory": "Finance",
+      "deleteAppDataOnUninstall": false,
+      "differentialPackage": true,
+      "artifactName": "${productName} Setup ${version}.${ext}",
+      "uninstallDisplayName": "TradingBook - Trading Journal",
+      "guid": "12345678-1234-1234-1234-123456789012"
     }
   },
   "browserslist": {

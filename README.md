@@ -40,7 +40,7 @@ A comprehensive, open-source trading journal application built with Electron and
 - ✅ **Data Privacy** - Your data stays on your machine
 - ✅ **Offline First** - No internet required
 - ✅ **Open Source** - Full transparency and customization
-- ✅ **Cross Platform** - Linux AppImage & Windows EXE (portable)
+- ✅ **Cross Platform** - Linux AppImage & Windows installer/portable
 - ✅ **No Installation** - Portable executables, no admin rights needed
 - ✅ **No Data Limits** - Track unlimited trades
 
@@ -53,9 +53,15 @@ A comprehensive, open-source trading journal application built with Electron and
 2. Make executable: `chmod +x TradingBook-1.0.1.AppImage`
 3. Run: `./TradingBook-1.0.1.AppImage`
 
-#### 🪟 Windows Portable EXE
+#### 🪟 Windows
+**Option 1: Installer (Recommended)**
+1. Download `TradingBook Setup 1.0.1.exe` from [Releases](https://github.com/appatalks/TradingBook/releases)
+2. Run installer and follow prompts
+3. Launch from Start Menu or desktop shortcut
+
+**Option 2: Portable EXE**
 1. Download `TradingBook 1.0.1.exe` from [Releases](https://github.com/appatalks/TradingBook/releases)
-2. Double-click to run - that's it!
+2. Double-click to run - that's it! (No installation required)
 
 ## 💡 Usage Guide
 

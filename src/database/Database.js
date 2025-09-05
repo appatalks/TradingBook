@@ -34,11 +34,28 @@ class DatabaseManager {
       this.dbPath = path.join(userDataPath, 'trades.db');
       
       debugLogger.log('Initializing database at path:', this.dbPath);
+      debugLogger.log('Platform:', process.platform);
+      debugLogger.log('User data path:', userDataPath);
       
       // Ensure the userData directory exists
       if (!fs.existsSync(userDataPath)) {
         fs.mkdirSync(userDataPath, { recursive: true });
         debugLogger.log('Created userData directory:', userDataPath);
+      }
+      
+      // For Windows, ensure proper file permissions and handle potential file locks
+      if (process.platform === 'win32') {
+        // Check if database file exists and is accessible
+        if (fs.existsSync(this.dbPath)) {
+          try {
+            // Test file access before opening database
+            fs.accessSync(this.dbPath, fs.constants.R_OK | fs.constants.W_OK);
+            debugLogger.log('Database file access test passed on Windows');
+          } catch (accessError) {
+            debugLogger.log('Database file access test failed on Windows:', accessError.message);
+            // File may be locked, try to continue anyway
+          }
+        }
       }
       
       this.db = new Database(this.dbPath);
@@ -602,7 +619,23 @@ INSERT OR IGNORE INTO settings (key, value) VALUES
 
   close() {
     if (this.db) {
-      this.db.close();
+      try {
+        // Force WAL checkpoint before closing on all platforms
+        this.db.exec('PRAGMA wal_checkpoint(FULL);');
+        debugLogger.log('WAL checkpoint completed before closing');
+      } catch (walError) {
+        debugLogger.log('WAL checkpoint failed before closing:', walError.message);
+      }
+      
+      try {
+        this.db.close();
+        debugLogger.log('Database connection closed successfully');
+      } catch (closeError) {
+        console.error('Error closing database:', closeError);
+        debugLogger.log('Database close error:', closeError.message);
+      } finally {
+        this.db = null;
+      }
     }
   }
 }

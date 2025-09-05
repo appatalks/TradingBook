@@ -291,9 +291,9 @@ else
     print_status "Skipping Linux AppImage build (Windows-only mode)"
 fi
 
-# Step 5: Create Windows EXE
+# Step 5: Create Windows Distributions
 if [ "$LINUX_ONLY" != true ]; then
-    print_header "Step 5: Creating Windows EXE"
+    print_header "Step 5: Creating Windows Distributions"
 
 # Check if Wine is available for cross-compilation
 if ! command -v wine &> /dev/null; then
@@ -301,19 +301,31 @@ if ! command -v wine &> /dev/null; then
     print_status "Consider installing Wine: sudo apt install wine"
 fi
 
+    # Build Windows installer (recommended for most users)
+    print_status "Building Windows installer (NSIS)..."
+    npm run build-windows-installer
+
+    # Verify Windows installer creation
+    if [ -f "dist/TradingBook Setup ${VERSION}.exe" ]; then
+        INSTALLER_SIZE=$(du -h "dist/TradingBook Setup ${VERSION}.exe" | cut -f1)
+        print_success "Windows installer created successfully (${INSTALLER_SIZE})"
+    else
+        print_error "Windows installer creation failed"
+    fi
+
+    # Build Windows portable EXE (for users who need portable version)
     print_status "Building Windows portable EXE..."
     npm run build-windows-portable
 
     # Verify Windows EXE creation
     if [ -f "dist/TradingBook ${VERSION}.exe" ]; then
         EXE_SIZE=$(du -h "dist/TradingBook ${VERSION}.exe" | cut -f1)
-        print_success "Windows EXE created successfully (${EXE_SIZE})"
+        print_success "Windows portable EXE created successfully (${EXE_SIZE})"
     else
-        print_error "Windows EXE creation failed"
-        exit 1
+        print_error "Windows portable EXE creation failed"
     fi
 else
-    print_status "Skipping Windows EXE build (Linux-only mode)"
+    print_status "Skipping Windows builds (Linux-only mode)"
 fi
 
 # Step 6: Create Windows ZIP archive
@@ -368,21 +380,38 @@ elif [ "$WINDOWS_ONLY" != true ]; then
     print_error "❌ Linux AppImage missing"
 fi
 
-# Windows EXE verification
+# Windows Installer verification
+if [ "$LINUX_ONLY" != true ] && [ -f "dist/TradingBook Setup ${VERSION}.exe" ]; then
+    INSTALLER_SIZE_BYTES=$(stat -c%s "dist/TradingBook Setup ${VERSION}.exe")
+    INSTALLER_SIZE_MB=$((INSTALLER_SIZE_BYTES / 1024 / 1024))
+    TOTAL_SIZE=$((TOTAL_SIZE + INSTALLER_SIZE_BYTES))
+    print_success "✅ Windows Installer: ${INSTALLER_SIZE_MB}MB"
+    
+    # Verify installer format
+    if file "dist/TradingBook Setup ${VERSION}.exe" | grep -q "PE32"; then
+        print_success "✅ Windows installer format verification passed"
+    else
+        print_warning "⚠️ Windows installer format verification failed"
+    fi
+elif [ "$LINUX_ONLY" != true ]; then
+    print_error "❌ Windows installer missing"
+fi
+
+# Windows Portable EXE verification
 if [ "$LINUX_ONLY" != true ] && [ -f "dist/TradingBook ${VERSION}.exe" ]; then
     EXE_SIZE_BYTES=$(stat -c%s "dist/TradingBook ${VERSION}.exe")
     EXE_SIZE_MB=$((EXE_SIZE_BYTES / 1024 / 1024))
     TOTAL_SIZE=$((TOTAL_SIZE + EXE_SIZE_BYTES))
-    print_success "✅ Windows EXE: ${EXE_SIZE_MB}MB"
+    print_success "✅ Windows Portable EXE: ${EXE_SIZE_MB}MB"
     
     # Verify EXE format
     if file "dist/TradingBook ${VERSION}.exe" | grep -q "PE32"; then
-        print_success "✅ Windows EXE format verification passed"
+        print_success "✅ Windows portable EXE format verification passed"
     else
-        print_warning "⚠️ Windows EXE format verification failed"
+        print_warning "⚠️ Windows portable EXE format verification failed"
     fi
 elif [ "$LINUX_ONLY" != true ]; then
-    print_error "❌ Windows EXE missing"
+    print_error "❌ Windows portable EXE missing"
 fi
 
 # Windows ZIP verification
@@ -401,6 +430,7 @@ print_header "Build Completed Successfully!"
 
 echo -e "${GREEN}📦 Distribution Files Created:${NC}"
 echo -e "   🐧 ${BLUE}TradingBook-${VERSION}.AppImage${NC} - Linux portable executable"
+echo -e "   🪟 ${BLUE}TradingBook Setup ${VERSION}.exe${NC} - Windows installer (recommended)"
 echo -e "   🪟 ${BLUE}TradingBook ${VERSION}.exe${NC} - Windows portable executable"
 echo -e "   📁 ${BLUE}TradingBook-${VERSION}-Windows.zip${NC} - Windows directory structure"
 echo ""
@@ -416,8 +446,8 @@ echo -e "${YELLOW}Linux Testing:${NC}"
 echo -e "   ./dist/TradingBook-${VERSION}.AppImage"
 echo ""
 echo -e "${YELLOW}Windows Testing:${NC}"
-echo -e "   • Copy 'dist/TradingBook ${VERSION}.exe' to Windows machine"
-echo -e "   • Double-click to run (no installation required)"
+echo -e "   • Installer: Run 'TradingBook Setup ${VERSION}.exe' for full installation"
+echo -e "   • Portable: Copy 'TradingBook ${VERSION}.exe' to Windows machine (no installation required)"
 echo ""
 echo -e "${YELLOW}Development Testing:${NC}"
 echo -e "   npm run electron-dev"

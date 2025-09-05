@@ -24,6 +24,7 @@ const Settings: React.FC<SettingsProps> = ({ darkMode, onToggleDarkMode }) => {
   const [confirmDialog, setConfirmDialog] = useState<{message: string; onConfirm: () => void} | null>(null);
   const [debugStatus, setDebugStatus] = useState<any>(null);
   const [showDebugInfo, setShowDebugInfo] = useState(false);
+  const [databasePath, setDatabasePath] = useState<string>('Loading...');
 
   const showNotification = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
     setNotification({ message, type });
@@ -36,6 +37,7 @@ const Settings: React.FC<SettingsProps> = ({ darkMode, onToggleDarkMode }) => {
 
   useEffect(() => {
     loadSettings();
+    loadDatabasePath();
   }, []);
 
   const loadSettings = async () => {
@@ -52,6 +54,22 @@ const Settings: React.FC<SettingsProps> = ({ darkMode, onToggleDarkMode }) => {
       console.error('Failed to load settings:', error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const loadDatabasePath = async () => {
+    try {
+      if (window.electronAPI) {
+        const result = await window.electronAPI.getDatabaseStatus();
+        if (result.success && result.status.dbPath) {
+          setDatabasePath(result.status.dbPath);
+        } else {
+          setDatabasePath('Error loading database path');
+        }
+      }
+    } catch (error) {
+      console.error('Failed to get database path:', error);
+      setDatabasePath('Error loading database path');
     }
   };
 
@@ -528,7 +546,7 @@ The application will reload momentarily to refresh all data.`, 'success');
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">Database Information</h2>
           <div className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
             <p>
-              <span className="font-medium">Database Location:</span> ~/.config/TradingBook/trades.db
+              <span className="font-medium">Database Location:</span> {databasePath}
             </p>
             <p>
               <span className="font-medium">Version:</span> {packageJson.version}
