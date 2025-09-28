@@ -1,6 +1,6 @@
 {
   "name": "tradingbook",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "TradingBook - Advanced trading journal application with privacy-focused offline functionality",
   "main": "public/electron.js",
   "homepage": "./",
