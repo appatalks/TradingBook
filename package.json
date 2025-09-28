@@ -65,6 +65,7 @@
     "postcss": "^8.4.20",
     "react-scripts": "5.1.0-next.26",
     "tailwindcss": "^3.4.17",
+    "tar": "^7.5.1",
     "typescript": "^5.9.2",
     "wait-on": "^9.0.1"
   },
@@ -83,17 +84,22 @@
       "!node_modules/react-scripts/**"
     ],
     "electronLanguages": [
-      "en", "en-GB", "en-US",
+      "en",
+      "en-GB",
+      "en-US",
       "uk",
-      "es", "es-419",
-      "fr", "fr-CA", 
+      "es",
+      "es-419",
+      "fr",
+      "fr-CA",
       "de",
       "it",
-      "pt", "pt-BR",
+      "pt",
+      "pt-BR",
       "nl",
       "pl",
       "cs",
-      "sk", 
+      "sk",
       "da",
       "sv",
       "no",
@@ -156,7 +162,9 @@
       "createStartMenuShortcut": true,
       "shortcutName": "TradingBook",
       "displayLanguageSelector": false,
-      "installerLanguages": ["en_US"],
+      "installerLanguages": [
+        "en_US"
+      ],
       "language": "1033",
       "multiLanguageInstaller": false,
       "packElevateHelper": true,
@@ -168,7 +176,8 @@
       "artifactName": "${productName} Setup ${version}.${ext}",
       "uninstallDisplayName": "TradingBook - Trading Journal",
       "guid": "12345678-1234-1234-1234-123456789012"
-    }
+    },
+    "afterPack": "./scripts/afterPack.js"
   },
   "browserslist": {
     "production": [
