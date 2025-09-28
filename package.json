@@ -2,7 +2,7 @@
   "name": "tradingbook",
   "version": "1.0.1",
   "description": "TradingBook - Advanced trading journal application with privacy-focused offline functionality",
-  "main": "build/electron.js",
+  "main": "public/electron.js",
   "homepage": "./",
   "repository": {
     "type": "git",
