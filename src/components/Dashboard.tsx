@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Trade, CalendarDay, PerformanceMetrics, DailyNote } from '../types/Trade';
 import PnLCalendar from './PnLCalendar';
 import MetricsCard from './MetricsCard';
@@ -10,6 +11,7 @@ interface DashboardProps {
 }
 
 const Dashboard: React.FC<DashboardProps> = ({ trades }) => {
+  const navigate = useNavigate();
   const [metrics, setMetrics] = useState<PerformanceMetrics | null>(null);
   const [calendarData, setCalendarData] = useState<CalendarDay[]>([]);
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
@@ -123,6 +125,16 @@ const Dashboard: React.FC<DashboardProps> = ({ trades }) => {
     setNoteText('');
     setIsSavingNote(false);
     setIsModalExpanded(false);
+  };
+
+  const handleAddTradeForDate = () => {
+    if (!selectedDay) return;
+    
+    // Format the date as YYYY-MM-DD for the URL parameter
+    const dateString = selectedDay.date.toLocaleDateString('en-CA');
+    
+    // Navigate to the trade form with the pre-selected date
+    navigate(`/trades/new?date=${dateString}`);
   };
 
   const handleSaveNote = async () => {
@@ -309,6 +321,19 @@ const Dashboard: React.FC<DashboardProps> = ({ trades }) => {
                   <span className={`font-semibold ${(selectedDay.data?.pnl ?? 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                     ${(selectedDay.data?.pnl ?? 0).toFixed(2)}
                   </span>
+                </div>
+
+                {/* Add Trade Button */}
+                <div className="flex justify-center">
+                  <button
+                    onClick={handleAddTradeForDate}
+                    className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors duration-200 shadow-sm hover:shadow-md"
+                  >
+                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    </svg>
+                    Add Trade for {selectedDay.date.toLocaleDateString()}
+                  </button>
                 </div>
                 
                 {dayTrades.length > 0 ? (

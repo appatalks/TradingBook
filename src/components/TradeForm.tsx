@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Trade } from '../types/Trade';
 
 interface TradeFormProps {
@@ -11,8 +11,19 @@ interface TradeFormProps {
 const TradeForm: React.FC<TradeFormProps> = ({ trades = [], onSubmit, settings }) => {
   const navigate = useNavigate();
   const { id } = useParams();
+  const [searchParams] = useSearchParams();
   const isEdit = !!id;
   const existingTrade = isEdit ? trades.find(t => t.id === Number(id)) : null;
+
+  // Get pre-filled date from URL parameters
+  const getInitialEntryDate = () => {
+    const dateParam = searchParams.get('date');
+    if (dateParam && !isEdit) {
+      // Convert YYYY-MM-DD to datetime-local format (YYYY-MM-DDTHH:MM)
+      return `${dateParam}T09:30`; // Default to 9:30 AM market open
+    }
+    return '';
+  };
 
   const [formData, setFormData] = useState({
     symbol: '',
@@ -20,7 +31,7 @@ const TradeForm: React.FC<TradeFormProps> = ({ trades = [], onSubmit, settings }
     quantity: '',
     entryPrice: '',
     exitPrice: '',
-    entryDate: '',
+    entryDate: getInitialEntryDate(),
     exitDate: '',
     commission: settings?.defaultCommission || '0.00',
     strategy: '',

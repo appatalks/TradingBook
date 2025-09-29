@@ -391,6 +391,8 @@ INSERT OR IGNORE INTO settings (key, value) VALUES
         // Use JSON file fallback for Windows
         if (this.isWindows) {
           let trades = [...this.tradesData];
+          debugLogger.log('💾 JSON fallback getTrades - Starting with', trades.length, 'trades');
+          debugLogger.log('💾 Filters:', filters);
           
           // Apply filters
           if (filters.symbol) {
@@ -398,11 +400,37 @@ INSERT OR IGNORE INTO settings (key, value) VALUES
           }
           if (filters.startDate) {
             const startDate = filters.startDate instanceof Date ? filters.startDate : new Date(filters.startDate);
-            trades = trades.filter(t => new Date(t.entryDate) >= startDate);
+            debugLogger.log('💾 Filtering by startDate:', startDate.toISOString(), 'from string:', filters.startDate);
+            const originalCount = trades.length;
+            trades = trades.filter(t => {
+              const tradeDate = new Date(t.entryDate);
+              // Compare only the date parts (YYYY-MM-DD) by setting time to midnight
+              const tradeDateOnly = new Date(tradeDate.getFullYear(), tradeDate.getMonth(), tradeDate.getDate());
+              const startDateOnly = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
+              const matches = tradeDateOnly >= startDateOnly;
+              if (!matches) {
+                debugLogger.log('💾 Trade filtered out - tradeDate:', tradeDate.toISOString(), 'vs startDate:', startDate.toISOString());
+              }
+              return matches;
+            });
+            debugLogger.log('💾 After startDate filter:', trades.length, 'trades (was', originalCount, ')');
           }
           if (filters.endDate) {
             const endDate = filters.endDate instanceof Date ? filters.endDate : new Date(filters.endDate);
-            trades = trades.filter(t => new Date(t.entryDate) <= endDate);
+            debugLogger.log('💾 Filtering by endDate:', endDate.toISOString(), 'from string:', filters.endDate);
+            const originalCount = trades.length;
+            trades = trades.filter(t => {
+              const tradeDate = new Date(t.entryDate);
+              // Compare only the date parts (YYYY-MM-DD) by setting time to midnight
+              const tradeDateOnly = new Date(tradeDate.getFullYear(), tradeDate.getMonth(), tradeDate.getDate());
+              const endDateOnly = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate());
+              const matches = tradeDateOnly <= endDateOnly;
+              if (!matches) {
+                debugLogger.log('💾 Trade filtered out - tradeDate:', tradeDate.toISOString(), 'vs endDate:', endDate.toISOString());
+              }
+              return matches;
+            });
+            debugLogger.log('💾 After endDate filter:', trades.length, 'trades (was', originalCount, ')');
           }
           if (filters.strategy) {
             trades = trades.filter(t => t.strategy === filters.strategy);
@@ -415,6 +443,31 @@ INSERT OR IGNORE INTO settings (key, value) VALUES
           }
           if (filters.maxPnL !== undefined) {
             trades = trades.filter(t => t.pnl !== null && t.pnl <= filters.maxPnL);
+          }
+          
+          // Handle specific date filtering (for calendar day clicks)
+          if (filters.date) {
+            debugLogger.log('🗓️ JSON fallback - Filtering by specific date:', filters.date);
+            const filterDate = new Date(filters.date);
+            const filterYear = filterDate.getFullYear();
+            const filterMonth = filterDate.getMonth();
+            const filterDay = filterDate.getDate();
+            
+
+            
+            trades = trades.filter(trade => {
+              const tradeDate = new Date(trade.entryDate);
+              const tradeYear = tradeDate.getFullYear();
+              const tradeMonth = tradeDate.getMonth();
+              const tradeDay = tradeDate.getDate();
+              
+              const matches = tradeYear === filterYear && tradeMonth === filterMonth && tradeDay === filterDay;
+              
+
+              
+              return matches;
+            });
+
           }
           
           // Convert date strings to Date objects (same as SQLite path)
@@ -648,17 +701,22 @@ INSERT OR IGNORE INTO settings (key, value) VALUES
           if (dateRange.startDate || dateRange.endDate) {
             trades = trades.filter(trade => {
               const entryDate = new Date(trade.entryDate);
+              // Compare only the date parts (YYYY-MM-DD) by setting time to midnight
+              const entryDateOnly = new Date(entryDate.getFullYear(), entryDate.getMonth(), entryDate.getDate());
+              
               if (dateRange.startDate) {
                 const startDate = dateRange.startDate instanceof Date 
                   ? dateRange.startDate 
                   : new Date(dateRange.startDate);
-                if (entryDate < startDate) return false;
+                const startDateOnly = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
+                if (entryDateOnly < startDateOnly) return false;
               }
               if (dateRange.endDate) {
                 const endDate = dateRange.endDate instanceof Date 
                   ? dateRange.endDate 
                   : new Date(dateRange.endDate);
-                if (entryDate > endDate) return false;
+                const endDateOnly = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate());
+                if (entryDateOnly > endDateOnly) return false;
               }
               return true;
             });

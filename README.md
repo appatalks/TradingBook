@@ -49,13 +49,13 @@ A comprehensive, open-source trading journal application built with Electron and
 ### Download & Run (No Installation Required!)
 
 #### 🐧 Linux AppImage
-1. Download `TradingBook-1.0.1.AppImage` from [Releases](https://github.com/appatalks/TradingBook/releases)
-2. Make executable: `chmod +x TradingBook-1.0.1.AppImage`
-3. Run: `./TradingBook-1.0.1.AppImage`
+1. Download `TradingBook-1.0.2.AppImage` from [Releases](https://github.com/appatalks/TradingBook/releases)
+2. Make executable: `chmod +x TradingBook-1.0.2.AppImage`
+3. Run: `./TradingBook-1.0.2.AppImage`
 
 #### 🪟 Windows
 **Installer (Recommended)**
-1. Download `TradingBook Setup 1.0.1.exe` from [Releases](https://github.com/appatalks/TradingBook/releases)
+1. Download `TradingBook Setup 1.0.2.exe` from [Releases](https://github.com/appatalks/TradingBook/releases)
 2. Run installer and follow prompts
 3. Launch from Start Menu or desktop shortcut
 
