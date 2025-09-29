@@ -20,6 +20,9 @@ class DatabaseManager {
   constructor() {
     this.db = null;
     this.dbPath = null;
+    this.isWindows = process.platform === 'win32';
+    this.isNativeSQLite = false;
+    this.isMemoryFallback = false;
     this.init();
   }
 
@@ -43,33 +46,122 @@ class DatabaseManager {
         debugLogger.log('Created userData directory:', userDataPath);
       }
       
-      // For Windows, ensure proper file permissions and handle potential file locks
-      if (process.platform === 'win32') {
-        // Check if database file exists and is accessible
-        if (fs.existsSync(this.dbPath)) {
-          try {
-            // Test file access before opening database
-            fs.accessSync(this.dbPath, fs.constants.R_OK | fs.constants.W_OK);
-            debugLogger.log('Database file access test passed on Windows');
-          } catch (accessError) {
-            debugLogger.log('Database file access test failed on Windows:', accessError.message);
-            // File may be locked, try to continue anyway
+      // Try native SQLite first
+      try {
+        // For Windows, do some additional checks
+        if (process.platform === 'win32') {
+          if (fs.existsSync(this.dbPath)) {
+            try {
+              fs.accessSync(this.dbPath, fs.constants.R_OK | fs.constants.W_OK);
+              debugLogger.log('Database file access test passed on Windows');
+            } catch (accessError) {
+              debugLogger.log('Database file access test failed on Windows:', accessError.message);
+              // File may be locked, try to continue anyway
+            }
           }
+        }
+        
+        this.db = new Database(this.dbPath);
+        debugLogger.log('✅ Connected to native SQLite database');
+        
+        // Test database connection
+        this.db.prepare('SELECT 1').get();
+        debugLogger.log('✅ Database connection test successful');
+        
+        this.createTables();
+        this.isNativeSQLite = true;
+        this.isMemoryFallback = false;
+        debugLogger.log('✅ Native SQLite database ready');
+        
+      } catch (sqliteError) {
+        debugLogger.log('❌ Native SQLite failed:', sqliteError.message);
+        
+        // If we're on Windows and SQLite fails, fall back to JSON storage
+        if (this.isWindows) {
+          debugLogger.log('🔄 Falling back to JSON file storage for Windows...');
+          this.fallbackToMemoryStorage();
+        } else {
+          // On Linux, SQLite should work, so throw the error
+          throw sqliteError;
         }
       }
       
-      this.db = new Database(this.dbPath);
-      debugLogger.log('Connected to SQLite database');
-      
-      // Test database connection
-      this.db.prepare('SELECT 1').get();
-      debugLogger.log('Database connection test successful');
-      
-      this.createTables();
     } catch (err) {
       console.error('Error opening database:', err);
       debugLogger.log('Database initialization failed:', err.message);
       throw err;
+    }
+  }
+  
+  fallbackToMemoryStorage() {
+    debugLogger.log('Initializing JSON file-based fallback storage...');
+    this.db = null; // No SQLite connection
+    this.isNativeSQLite = false;
+    this.isMemoryFallback = true;
+    
+    // Use JSON file for persistent storage
+    const userDataPath = app.getPath('userData');
+    this.jsonDbPath = path.join(userDataPath, 'trades.json');
+    
+    // Load existing data or create new
+    this.loadJsonDatabase();
+    
+    debugLogger.log('✅ JSON file-based fallback storage ready');
+    debugLogger.log('📁 Database file:', this.jsonDbPath);
+    debugLogger.log('✅ Data will persist between app sessions');
+  }
+  
+  loadJsonDatabase() {
+    try {
+      if (fs.existsSync(this.jsonDbPath)) {
+        const data = fs.readFileSync(this.jsonDbPath, 'utf8');
+        this.memoryStore = JSON.parse(data);
+        debugLogger.log('📖 Loaded existing JSON database with', this.memoryStore.trades?.length || 0, 'trades');
+      } else {
+        this.memoryStore = {
+          trades: [],
+          settings: {},
+          dailyNotes: {},
+          nextId: 1
+        };
+        debugLogger.log('📝 Created new JSON database');
+      }
+      
+      // Set up convenient references
+      this.tradesData = this.memoryStore.trades;
+      this.dailyNotesData = this.memoryStore.dailyNotes;
+      this.settingsData = this.memoryStore.settings;
+      this.nextId = this.memoryStore.nextId;
+      
+      // Ensure nextId is higher than any existing trade ID
+      if (this.tradesData && this.tradesData.length > 0) {
+        const maxId = Math.max(...this.tradesData.map(t => t.id || 0));
+        this.nextId = Math.max(this.nextId || 1, maxId + 1);
+        this.memoryStore.nextId = this.nextId;
+      }
+      
+    } catch (error) {
+      console.error('Failed to load JSON database:', error);
+      this.memoryStore = {
+        trades: [],
+        settings: {},
+        dailyNotes: {},
+        nextId: 1
+      };
+      this.tradesData = this.memoryStore.trades;
+      this.dailyNotesData = this.memoryStore.dailyNotes;
+      this.settingsData = this.memoryStore.settings;
+      this.nextId = this.memoryStore.nextId;
+    }
+  }
+  
+  saveJsonDatabase() {
+    try {
+      const data = JSON.stringify(this.memoryStore, null, 2);
+      fs.writeFileSync(this.jsonDbPath, data, 'utf8');
+      debugLogger.log('💾 JSON database saved successfully');
+    } catch (error) {
+      console.error('Failed to save JSON database:', error);
     }
   }
 
@@ -217,6 +309,33 @@ INSERT OR IGNORE INTO settings (key, value) VALUES
   saveTrade(trade) {
     return new Promise((resolve, reject) => {
       try {
+        // Use JSON file fallback for Windows
+        if (this.isWindows) {
+          const newTrade = {
+            id: this.nextId++,
+            ...trade,
+            // Ensure dates are stored consistently
+            entryDate: trade.entryDate instanceof Date ? trade.entryDate.toISOString() : trade.entryDate,
+            exitDate: trade.exitDate instanceof Date ? trade.exitDate.toISOString() : trade.exitDate,
+            expirationDate: trade.expirationDate instanceof Date ? trade.expirationDate.toISOString() : trade.expirationDate
+          };
+          this.tradesData.push(newTrade);
+          this.memoryStore.nextId = this.nextId; // Keep memoryStore in sync
+          this.saveJsonDatabase(); // Persist to file immediately
+          debugLogger.log('💾 Trade saved to JSON database:', newTrade.symbol);
+          
+          // Return trade with Date objects for frontend compatibility
+          const returnTrade = {
+            ...newTrade,
+            entryDate: newTrade.entryDate ? new Date(newTrade.entryDate) : null,
+            exitDate: newTrade.exitDate ? new Date(newTrade.exitDate) : null,
+            expirationDate: newTrade.expirationDate ? new Date(newTrade.expirationDate) : null
+          };
+          resolve(returnTrade);
+          return;
+        }
+        
+        // Native SQLite path
         const stmt = this.db.prepare(`
           INSERT INTO trades (
             symbol, side, quantity, entry_price, exit_price, entry_date, exit_date,
@@ -269,6 +388,52 @@ INSERT OR IGNORE INTO settings (key, value) VALUES
   getTrades(filters = {}) {
     return new Promise((resolve, reject) => {
       try {
+        // Use JSON file fallback for Windows
+        if (this.isWindows) {
+          let trades = [...this.tradesData];
+          
+          // Apply filters
+          if (filters.symbol) {
+            trades = trades.filter(t => t.symbol.toLowerCase().includes(filters.symbol.toLowerCase()));
+          }
+          if (filters.startDate) {
+            const startDate = filters.startDate instanceof Date ? filters.startDate : new Date(filters.startDate);
+            trades = trades.filter(t => new Date(t.entryDate) >= startDate);
+          }
+          if (filters.endDate) {
+            const endDate = filters.endDate instanceof Date ? filters.endDate : new Date(filters.endDate);
+            trades = trades.filter(t => new Date(t.entryDate) <= endDate);
+          }
+          if (filters.strategy) {
+            trades = trades.filter(t => t.strategy === filters.strategy);
+          }
+          if (filters.assetType) {
+            trades = trades.filter(t => t.assetType === filters.assetType);
+          }
+          if (filters.minPnL !== undefined) {
+            trades = trades.filter(t => t.pnl !== null && t.pnl >= filters.minPnL);
+          }
+          if (filters.maxPnL !== undefined) {
+            trades = trades.filter(t => t.pnl !== null && t.pnl <= filters.maxPnL);
+          }
+          
+          // Convert date strings to Date objects (same as SQLite path)
+          trades = trades.map(trade => ({
+            ...trade,
+            entryDate: trade.entryDate ? new Date(trade.entryDate) : null,
+            exitDate: trade.exitDate ? new Date(trade.exitDate) : null,
+            expirationDate: trade.expirationDate ? new Date(trade.expirationDate) : null
+          }));
+          
+          // Sort by entry date descending
+          trades.sort((a, b) => new Date(b.entryDate) - new Date(a.entryDate));
+          
+          debugLogger.log('💾 Retrieved', trades.length, 'trades from memory storage');
+          resolve(trades);
+          return;
+        }
+        
+        // Native SQLite path
         let sql = 'SELECT * FROM trades WHERE 1=1';
         const params = [];
 
@@ -349,6 +514,35 @@ INSERT OR IGNORE INTO settings (key, value) VALUES
   updateTrade(id, updates) {
     return new Promise((resolve, reject) => {
       try {
+        // Use JSON file fallback for Windows
+        if (this.isWindows) {
+          const tradeIndex = this.tradesData.findIndex(t => t.id === id);
+          if (tradeIndex === -1) {
+            throw new Error(`Trade with id ${id} not found`);
+          }
+          
+          // Update the trade
+          const updatedTrade = { ...this.tradesData[tradeIndex], ...updates };
+          // Handle date formatting for storage
+          if (updates.entryDate instanceof Date) updatedTrade.entryDate = updates.entryDate.toISOString();
+          if (updates.exitDate instanceof Date) updatedTrade.exitDate = updates.exitDate.toISOString();
+          if (updates.expirationDate instanceof Date) updatedTrade.expirationDate = updates.expirationDate.toISOString();
+          
+          this.tradesData[tradeIndex] = updatedTrade;
+          this.saveJsonDatabase(); // Persist to file immediately
+          debugLogger.log('💾 Trade updated in JSON database:', updatedTrade.symbol);
+          
+          // Return trade with Date objects for frontend compatibility
+          const returnTrade = {
+            ...updatedTrade,
+            entryDate: updatedTrade.entryDate ? new Date(updatedTrade.entryDate) : null,
+            exitDate: updatedTrade.exitDate ? new Date(updatedTrade.exitDate) : null,
+            expirationDate: updatedTrade.expirationDate ? new Date(updatedTrade.expirationDate) : null
+          };
+          resolve(returnTrade);
+          return;
+        }
+        
         // Date formatting helper (same as in saveTrade)
         const formatDateForStorage = (date) => {
           if (!(date instanceof Date)) return date;
@@ -400,9 +594,21 @@ INSERT OR IGNORE INTO settings (key, value) VALUES
   deleteTrade(id) {
     return new Promise((resolve, reject) => {
       try {
-        const stmt = this.db.prepare('DELETE FROM trades WHERE id = ?');
-        const result = stmt.run(id);
-        resolve({ deleted: result.changes });
+        if (this.isWindows) {
+          // Delete from JSON data
+          const tradeIndex = this.tradesData.findIndex(trade => trade.id === id);
+          if (tradeIndex !== -1) {
+            this.tradesData.splice(tradeIndex, 1);
+            this.saveJsonDatabase();
+            resolve({ deleted: 1 });
+          } else {
+            resolve({ deleted: 0 });
+          }
+        } else {
+          const stmt = this.db.prepare('DELETE FROM trades WHERE id = ?');
+          const result = stmt.run(id);
+          resolve({ deleted: result.changes });
+        }
       } catch (err) {
         reject(err);
       }
@@ -412,9 +618,18 @@ INSERT OR IGNORE INTO settings (key, value) VALUES
   purgeAllTrades() {
     return new Promise((resolve, reject) => {
       try {
-        const stmt = this.db.prepare('DELETE FROM trades');
-        const result = stmt.run();
-        resolve({ deleted: result.changes });
+        if (this.isWindows) {
+          // Clear JSON data
+          const deleted = this.tradesData.length;
+          this.tradesData = [];
+          this.nextId = 1;
+          this.saveJsonDatabase();
+          resolve({ deleted: deleted });
+        } else {
+          const stmt = this.db.prepare('DELETE FROM trades');
+          const result = stmt.run();
+          resolve({ deleted: result.changes });
+        }
       } catch (err) {
         reject(err);
       }
@@ -425,88 +640,156 @@ INSERT OR IGNORE INTO settings (key, value) VALUES
   getPerformanceMetrics(dateRange) {
     return new Promise((resolve, reject) => {
       try {
-        let sql = `
-          SELECT 
-            COUNT(*) as total_trades,
-            SUM(CASE WHEN pnl > 0 THEN 1 ELSE 0 END) as winning_trades,
-            SUM(CASE WHEN pnl < 0 THEN 1 ELSE 0 END) as losing_trades,
-            SUM(pnl) as total_pnl,
-            AVG(CASE WHEN pnl > 0 THEN pnl ELSE NULL END) as avg_win,
-            AVG(CASE WHEN pnl < 0 THEN pnl ELSE NULL END) as avg_loss,
-            MAX(pnl) as largest_win,
-            MIN(pnl) as largest_loss
-          FROM trades 
-          WHERE pnl IS NOT NULL
-        `;
-        
-        const params = [];
-        if (dateRange.startDate) {
-          sql += ' AND DATE(entry_date) >= DATE(?)';
-          // Convert Date object to ISO string if needed
-          const startDate = dateRange.startDate instanceof Date 
-            ? dateRange.startDate.toISOString() 
-            : dateRange.startDate;
-          params.push(startDate);
-        }
-        if (dateRange.endDate) {
-          sql += ' AND DATE(entry_date) <= DATE(?)';
-          // Convert Date object to ISO string if needed
-          const endDate = dateRange.endDate instanceof Date 
-            ? dateRange.endDate.toISOString() 
-            : dateRange.endDate;
-          params.push(endDate);
-        }
+        if (this.isWindows) {
+          // Calculate metrics from JSON data
+          let trades = this.tradesData.filter(trade => trade.pnl !== null && trade.pnl !== undefined);
+          
+          // Apply date filters
+          if (dateRange.startDate || dateRange.endDate) {
+            trades = trades.filter(trade => {
+              const entryDate = new Date(trade.entryDate);
+              if (dateRange.startDate) {
+                const startDate = dateRange.startDate instanceof Date 
+                  ? dateRange.startDate 
+                  : new Date(dateRange.startDate);
+                if (entryDate < startDate) return false;
+              }
+              if (dateRange.endDate) {
+                const endDate = dateRange.endDate instanceof Date 
+                  ? dateRange.endDate 
+                  : new Date(dateRange.endDate);
+                if (entryDate > endDate) return false;
+              }
+              return true;
+            });
+          }
+          
+          const totalTrades = trades.length;
+          const winningTrades = trades.filter(t => t.pnl > 0).length;
+          const losingTrades = trades.filter(t => t.pnl < 0).length;
+          const totalPnL = trades.reduce((sum, t) => sum + t.pnl, 0);
+          
+          const winners = trades.filter(t => t.pnl > 0);
+          const losers = trades.filter(t => t.pnl < 0);
+          
+          const avgWin = winners.length > 0 ? winners.reduce((sum, t) => sum + t.pnl, 0) / winners.length : 0;
+          const avgLoss = losers.length > 0 ? losers.reduce((sum, t) => sum + t.pnl, 0) / losers.length : 0;
+          
+          const largestWin = winners.length > 0 ? Math.max(...winners.map(t => t.pnl)) : 0;
+          const largestLoss = losers.length > 0 ? Math.min(...losers.map(t => t.pnl)) : 0;
+          
+          const metrics = {
+            totalTrades: totalTrades,
+            winningTrades: winningTrades,
+            losingTrades: losingTrades,
+            winRate: totalTrades > 0 ? winningTrades / totalTrades : 0,
+            totalPnL: totalPnL,
+            averageWin: avgWin,
+            averageLoss: avgLoss,
+            profitFactor: (avgLoss < 0) ? Math.abs(avgWin / avgLoss) : 0,
+            largestWin: largestWin,
+            largestLoss: largestLoss,
+            sharpeRatio: 0, // TODO: Implement Sharpe ratio calculation
+            maxDrawdown: 0, // TODO: Implement max drawdown calculation
+            topWinners: winners.sort((a, b) => b.pnl - a.pnl).slice(0, 10).map(trade => ({
+              ...trade,
+              entryDate: trade.entryDate ? new Date(trade.entryDate) : null,
+              exitDate: trade.exitDate ? new Date(trade.exitDate) : null,
+              expirationDate: trade.expirationDate ? new Date(trade.expirationDate) : null
+            })),
+            topLosers: losers.sort((a, b) => a.pnl - b.pnl).slice(0, 10).map(trade => ({
+              ...trade,
+              entryDate: trade.entryDate ? new Date(trade.entryDate) : null,
+              exitDate: trade.exitDate ? new Date(trade.exitDate) : null,
+              expirationDate: trade.expirationDate ? new Date(trade.expirationDate) : null
+            }))
+          };
+          
+          resolve(metrics);
+        } else {
+          let sql = `
+            SELECT 
+              COUNT(*) as total_trades,
+              SUM(CASE WHEN pnl > 0 THEN 1 ELSE 0 END) as winning_trades,
+              SUM(CASE WHEN pnl < 0 THEN 1 ELSE 0 END) as losing_trades,
+              SUM(pnl) as total_pnl,
+              AVG(CASE WHEN pnl > 0 THEN pnl ELSE NULL END) as avg_win,
+              AVG(CASE WHEN pnl < 0 THEN pnl ELSE NULL END) as avg_loss,
+              MAX(pnl) as largest_win,
+              MIN(pnl) as largest_loss
+            FROM trades 
+            WHERE pnl IS NOT NULL
+          `;
+          
+          const params = [];
+          if (dateRange.startDate) {
+            sql += ' AND DATE(entry_date) >= DATE(?)';
+            // Convert Date object to ISO string if needed
+            const startDate = dateRange.startDate instanceof Date 
+              ? dateRange.startDate.toISOString() 
+              : dateRange.startDate;
+            params.push(startDate);
+          }
+          if (dateRange.endDate) {
+            sql += ' AND DATE(entry_date) <= DATE(?)';
+            // Convert Date object to ISO string if needed
+            const endDate = dateRange.endDate instanceof Date 
+              ? dateRange.endDate.toISOString() 
+              : dateRange.endDate;
+            params.push(endDate);
+          }
 
-        const stmt = this.db.prepare(sql);
-        const row = stmt.get(...params);
-        
-        const metrics = {
-          totalTrades: row.total_trades || 0,
-          winningTrades: row.winning_trades || 0,
-          losingTrades: row.losing_trades || 0,
-          winRate: row.total_trades ? (row.winning_trades || 0) / row.total_trades : 0,
-          totalPnL: row.total_pnl || 0,
-          averageWin: row.avg_win || 0,
-          averageLoss: row.avg_loss || 0,
-          profitFactor: (row.avg_loss && row.avg_loss < 0) ? 
-            Math.abs((row.avg_win || 0) / row.avg_loss) : 0,
-          largestWin: row.largest_win || 0,
-          largestLoss: row.largest_loss || 0,
-          sharpeRatio: 0, // TODO: Implement Sharpe ratio calculation
-          maxDrawdown: 0 // TODO: Implement max drawdown calculation
-        };
-        
-        // Add top 10 winners and losers
-        try {
-          const topWinnersStmt = this.db.prepare(`
-            SELECT symbol, quantity, entry_price, exit_price, pnl, entry_date, exit_date 
-            FROM trades 
-            WHERE pnl IS NOT NULL AND pnl > 0
-            ${dateRange.startDate ? 'AND DATE(entry_date) >= DATE(?)' : ''}
-            ${dateRange.endDate ? 'AND DATE(entry_date) <= DATE(?)' : ''}
-            ORDER BY pnl DESC 
-            LIMIT 10
-          `);
+          const stmt = this.db.prepare(sql);
+          const row = stmt.get(...params);
           
-          const topLosersStmt = this.db.prepare(`
-            SELECT symbol, quantity, entry_price, exit_price, pnl, entry_date, exit_date 
-            FROM trades 
-            WHERE pnl IS NOT NULL AND pnl < 0
-            ${dateRange.startDate ? 'AND DATE(entry_date) >= DATE(?)' : ''}
-            ${dateRange.endDate ? 'AND DATE(entry_date) <= DATE(?)' : ''}
-            ORDER BY pnl ASC 
-            LIMIT 10
-          `);
+          const metrics = {
+            totalTrades: row.total_trades || 0,
+            winningTrades: row.winning_trades || 0,
+            losingTrades: row.losing_trades || 0,
+            winRate: row.total_trades ? (row.winning_trades || 0) / row.total_trades : 0,
+            totalPnL: row.total_pnl || 0,
+            averageWin: row.avg_win || 0,
+            averageLoss: row.avg_loss || 0,
+            profitFactor: (row.avg_loss && row.avg_loss < 0) ? 
+              Math.abs((row.avg_win || 0) / row.avg_loss) : 0,
+            largestWin: row.largest_win || 0,
+            largestLoss: row.largest_loss || 0,
+            sharpeRatio: 0, // TODO: Implement Sharpe ratio calculation
+            maxDrawdown: 0 // TODO: Implement max drawdown calculation
+          };
           
-          metrics.topWinners = topWinnersStmt.all(...params);
-          metrics.topLosers = topLosersStmt.all(...params);
-        } catch (topError) {
-          console.error('Error getting top winners/losers:', topError);
-          metrics.topWinners = [];
-          metrics.topLosers = [];
+          // Add top 10 winners and losers
+          try {
+            const topWinnersStmt = this.db.prepare(`
+              SELECT symbol, quantity, entry_price, exit_price, pnl, entry_date, exit_date 
+              FROM trades 
+              WHERE pnl IS NOT NULL AND pnl > 0
+              ${dateRange.startDate ? 'AND DATE(entry_date) >= DATE(?)' : ''}
+              ${dateRange.endDate ? 'AND DATE(entry_date) <= DATE(?)' : ''}
+              ORDER BY pnl DESC 
+              LIMIT 10
+            `);
+            
+            const topLosersStmt = this.db.prepare(`
+              SELECT symbol, quantity, entry_price, exit_price, pnl, entry_date, exit_date 
+              FROM trades 
+              WHERE pnl IS NOT NULL AND pnl < 0
+              ${dateRange.startDate ? 'AND DATE(entry_date) >= DATE(?)' : ''}
+              ${dateRange.endDate ? 'AND DATE(entry_date) <= DATE(?)' : ''}
+              ORDER BY pnl ASC 
+              LIMIT 10
+            `);
+            
+            metrics.topWinners = topWinnersStmt.all(...params);
+            metrics.topLosers = topLosersStmt.all(...params);
+          } catch (topError) {
+            console.error('Error getting top winners/losers:', topError);
+            metrics.topWinners = [];
+            metrics.topLosers = [];
+          }
+          
+          resolve(metrics);
         }
-        
-        resolve(metrics);
       } catch (err) {
         console.error('Error in getPerformanceMetrics:', err);
         reject(err);
@@ -517,34 +800,76 @@ INSERT OR IGNORE INTO settings (key, value) VALUES
   getCalendarData(month, year) {
     return new Promise((resolve, reject) => {
       try {
-        const sql = `
-          SELECT 
-            DATE(entry_date) as date,
-            SUM(CASE WHEN pnl IS NOT NULL THEN pnl ELSE 0 END) as daily_pnl,
-            COUNT(*) as trade_count,
-            SUM(CASE WHEN pnl > 0 THEN 1 ELSE 0 END) as wins
-          FROM trades 
-          WHERE strftime('%m', entry_date) = ? 
-            AND strftime('%Y', entry_date) = ?
-          GROUP BY DATE(entry_date)
-          ORDER BY date
-        `;
+        if (this.isWindows) {
+          // Calculate calendar data from JSON data
+          const targetMonth = month + 1; // month is 0-based
+          const targetYear = year;
+          
+          // Group trades by date
+          const dailyData = {};
+          
+          this.tradesData.forEach(trade => {
+            const tradeDate = new Date(trade.entryDate);
+            if (tradeDate.getFullYear() === targetYear && tradeDate.getMonth() + 1 === targetMonth) {
+              const dateKey = tradeDate.toISOString().split('T')[0]; // YYYY-MM-DD format
+              
+              if (!dailyData[dateKey]) {
+                dailyData[dateKey] = {
+                  pnl: 0,
+                  tradeCount: 0,
+                  wins: 0
+                };
+              }
+              
+              dailyData[dateKey].pnl += trade.pnl || 0;
+              dailyData[dateKey].tradeCount += 1;
+              if (trade.pnl > 0) {
+                dailyData[dateKey].wins += 1;
+              }
+            }
+          });
+          
+          // Convert to array format
+          const calendarData = Object.keys(dailyData)
+            .sort()
+            .map(dateKey => ({
+              date: new Date(dateKey + 'T00:00:00'),
+              pnl: dailyData[dateKey].pnl,
+              tradeCount: dailyData[dateKey].tradeCount,
+              winRate: dailyData[dateKey].tradeCount ? dailyData[dateKey].wins / dailyData[dateKey].tradeCount : 0
+            }));
+          
+          resolve(calendarData);
+        } else {
+          const sql = `
+            SELECT 
+              DATE(entry_date) as date,
+              SUM(CASE WHEN pnl IS NOT NULL THEN pnl ELSE 0 END) as daily_pnl,
+              COUNT(*) as trade_count,
+              SUM(CASE WHEN pnl > 0 THEN 1 ELSE 0 END) as wins
+            FROM trades 
+            WHERE strftime('%m', entry_date) = ? 
+              AND strftime('%Y', entry_date) = ?
+            GROUP BY DATE(entry_date)
+            ORDER BY date
+          `;
 
-        const stmt = this.db.prepare(sql);
-        const rows = stmt.all(
-          (month + 1).toString().padStart(2, '0'),
-          year.toString()
-        );
-        
-        const calendarData = rows.map(row => ({
-          // Use timezone-safe date parsing - append 'T00:00:00' to treat as local date
-          date: new Date(row.date + 'T00:00:00'),
-          pnl: row.daily_pnl,
-          tradeCount: row.trade_count,
-          winRate: row.trade_count ? row.wins / row.trade_count : 0
-        }));
-        
-        resolve(calendarData);
+          const stmt = this.db.prepare(sql);
+          const rows = stmt.all(
+            (month + 1).toString().padStart(2, '0'),
+            year.toString()
+          );
+          
+          const calendarData = rows.map(row => ({
+            // Use timezone-safe date parsing - append 'T00:00:00' to treat as local date
+            date: new Date(row.date + 'T00:00:00'),
+            pnl: row.daily_pnl,
+            tradeCount: row.trade_count,
+            winRate: row.trade_count ? row.wins / row.trade_count : 0
+          }));
+          
+          resolve(calendarData);
+        }
       } catch (err) {
         reject(err);
       }
@@ -556,15 +881,33 @@ INSERT OR IGNORE INTO settings (key, value) VALUES
     return new Promise((resolve, reject) => {
       try {
         debugLogger.log('Database saveDailyNote called with date:', date, 'notes length:', notes.length);
-        // Date should be in YYYY-MM-DD format
-        const stmt = this.db.prepare(`
-          INSERT OR REPLACE INTO daily_notes (date, notes, updated_at)
-          VALUES (?, ?, CURRENT_TIMESTAMP)
-        `);
         
-        const result = stmt.run(date, notes);
-        debugLogger.log('Database saveDailyNote result:', result);
-        resolve({ success: true, id: result.lastInsertRowid });
+        if (this.isWindows) {
+          // Save daily note in JSON data
+          if (!this.dailyNotesData) {
+            this.dailyNotesData = {};
+          }
+          
+          this.dailyNotesData[date] = {
+            date: date,
+            notes: notes,
+            updated_at: new Date().toISOString()
+          };
+          
+          this.saveJsonDatabase();
+          debugLogger.log('Database saveDailyNote JSON result: success');
+          resolve({ success: true, id: date });
+        } else {
+          // Date should be in YYYY-MM-DD format
+          const stmt = this.db.prepare(`
+            INSERT OR REPLACE INTO daily_notes (date, notes, updated_at)
+            VALUES (?, ?, CURRENT_TIMESTAMP)
+          `);
+          
+          const result = stmt.run(date, notes);
+          debugLogger.log('Database saveDailyNote result:', result);
+          resolve({ success: true, id: result.lastInsertRowid });
+        }
       } catch (err) {
         console.error('Database saveDailyNote error:', err);
         debugLogger.log('Database saveDailyNote error details:', err.message);
@@ -577,10 +920,18 @@ INSERT OR IGNORE INTO settings (key, value) VALUES
     return new Promise((resolve, reject) => {
       try {
         debugLogger.log('Database getDailyNote called with date:', date);
-        const stmt = this.db.prepare('SELECT * FROM daily_notes WHERE date = ?');
-        const note = stmt.get(date);
-        debugLogger.log('Database getDailyNote result:', note);
-        resolve(note);
+        
+        if (this.isWindows) {
+          // Get daily note from JSON data
+          const note = this.dailyNotesData && this.dailyNotesData[date] ? this.dailyNotesData[date] : null;
+          debugLogger.log('Database getDailyNote JSON result:', note);
+          resolve(note);
+        } else {
+          const stmt = this.db.prepare('SELECT * FROM daily_notes WHERE date = ?');
+          const note = stmt.get(date);
+          debugLogger.log('Database getDailyNote result:', note);
+          resolve(note);
+        }
       } catch (err) {
         console.error('Database getDailyNote error:', err);
         debugLogger.log('Database getDailyNote error details:', err.message);
@@ -593,10 +944,23 @@ INSERT OR IGNORE INTO settings (key, value) VALUES
     return new Promise((resolve, reject) => {
       try {
         debugLogger.log('Database deleteDailyNote called with date:', date);
-        const stmt = this.db.prepare('DELETE FROM daily_notes WHERE date = ?');
-        const result = stmt.run(date);
-        debugLogger.log('Database deleteDailyNote result:', result);
-        resolve({ deleted: result.changes });
+        
+        if (this.isWindows) {
+          // Delete daily note from JSON data
+          let deleted = 0;
+          if (this.dailyNotesData && this.dailyNotesData[date]) {
+            delete this.dailyNotesData[date];
+            deleted = 1;
+            this.saveJsonDatabase();
+          }
+          debugLogger.log('Database deleteDailyNote JSON result: deleted', deleted);
+          resolve({ deleted: deleted });
+        } else {
+          const stmt = this.db.prepare('DELETE FROM daily_notes WHERE date = ?');
+          const result = stmt.run(date);
+          debugLogger.log('Database deleteDailyNote result:', result);
+          resolve({ deleted: result.changes });
+        }
       } catch (err) {
         console.error('Database deleteDailyNote error:', err);
         debugLogger.log('Database deleteDailyNote error details:', err.message);
@@ -607,6 +971,9 @@ INSERT OR IGNORE INTO settings (key, value) VALUES
 
   // Backup/restore utility methods
   getDatabasePath() {
+    if (this.isMemoryFallback && this.jsonDbPath) {
+      return this.jsonDbPath;
+    }
     return this.dbPath;
   }
 

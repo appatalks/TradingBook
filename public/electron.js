@@ -473,9 +473,9 @@ function initDatabase() {
     db = new DatabaseManager();
     debugLogger.log('Database initialized successfully');
     
-    // Test database connection
-    if (!db || !db.db) {
-      throw new Error('Database connection failed - db object is null');
+    // Test database connection - for hybrid system, either SQLite or JSON fallback is valid
+    if (!db || (!db.isNativeSQLite && !db.isMemoryFallback)) {
+      throw new Error('Database connection failed - neither SQLite nor JSON fallback initialized');
     }
     
     // Sync database debug logger with current settings
@@ -859,11 +859,13 @@ ipcMain.handle('purge-database', async (event) => {
     const dbPath = db.getDatabasePath();
     debugLogger.log('Database path to purge:', dbPath);
     
-    // Force WAL checkpoint to ensure all data is written to main database file
+    // Force WAL checkpoint to ensure all data is written to main database file (SQLite only)
     try {
-      if (db && db.db) {
+      if (db && db.db && db.isNativeSQLite) {
         db.db.exec('PRAGMA wal_checkpoint(FULL);');
         debugLogger.log('WAL checkpoint completed');
+      } else if (db && db.isMemoryFallback) {
+        debugLogger.log('JSON storage - no WAL checkpoint needed');
       }
     } catch (walError) {
       debugLogger.log('WAL checkpoint failed (database may be closed):', walError.message);
@@ -1563,7 +1565,7 @@ ipcMain.handle('get-database-status', async (event) => {
     const userDataPath = app.getPath('userData');
     const status = {
       initialized: !!db,
-      connected: !!(db && db.db),
+      connected: !!(db && (db.isNativeSQLite || db.isMemoryFallback)),
       dbPath: db ? db.getDatabasePath() : path.join(userDataPath, 'trades.db'),
       userDataPath: userDataPath,
       platform: process.platform,
@@ -1574,13 +1576,15 @@ ipcMain.handle('get-database-status', async (event) => {
     };
     
     // Test a simple query if database is available
-    if (db && db.db) {
+    if (db && db.isNativeSQLite && db.db) {
       try {
         db.db.prepare('SELECT 1 as test').get();
-        status.queryTest = 'SUCCESS';
+        status.queryTest = 'SUCCESS (SQLite)';
       } catch (queryError) {
         status.queryTest = `FAILED: ${queryError.message}`;
       }
+    } else if (db && db.isMemoryFallback) {
+      status.queryTest = 'SUCCESS (JSON fallback)';
     }
     
     debugLogger.log('Database status check:', status);
@@ -1616,7 +1620,7 @@ app.whenReady().then(async () => {
   await new Promise(resolve => setTimeout(resolve, 1000));
   
   // Test database connection before creating window
-  if (db && db.db) {
+  if (db && (db.isNativeSQLite || db.isMemoryFallback)) {
     debugLogger.log('Database initialization confirmed before window creation');
   } else {
     debugLogger.log('WARNING: Database not initialized properly before window creation');
