@@ -736,6 +736,40 @@ INSERT OR IGNORE INTO settings (key, value) VALUES
           const largestWin = winners.length > 0 ? Math.max(...winners.map(t => t.pnl)) : 0;
           const largestLoss = losers.length > 0 ? Math.min(...losers.map(t => t.pnl)) : 0;
           
+          // Calculate Sharpe Ratio (annualized)
+          let sharpeRatio = 0;
+          if (trades.length > 1) {
+            const returns = trades.map(t => t.pnl);
+            const avgReturn = returns.reduce((sum, r) => sum + r, 0) / returns.length;
+            const variance = returns.reduce((sum, r) => sum + Math.pow(r - avgReturn, 2), 0) / (returns.length - 1);
+            const stdDev = Math.sqrt(variance);
+            if (stdDev > 0) {
+              // Assuming ~252 trading days per year for annualization
+              sharpeRatio = (avgReturn / stdDev) * Math.sqrt(252);
+            }
+          }
+          
+          // Calculate Max Drawdown
+          let maxDrawdown = 0;
+          let peak = 0;
+          let cumulative = 0;
+          
+          // Sort trades by date for cumulative calculation
+          const sortedTrades = [...trades].sort((a, b) => 
+            new Date(a.entryDate).getTime() - new Date(b.entryDate).getTime()
+          );
+          
+          sortedTrades.forEach(trade => {
+            cumulative += trade.pnl;
+            if (cumulative > peak) {
+              peak = cumulative;
+            }
+            const drawdown = peak > 0 ? ((peak - cumulative) / peak) * 100 : 0;
+            if (drawdown > maxDrawdown) {
+              maxDrawdown = drawdown;
+            }
+          });
+
           const metrics = {
             totalTrades: totalTrades,
             winningTrades: winningTrades,
@@ -747,8 +781,8 @@ INSERT OR IGNORE INTO settings (key, value) VALUES
             profitFactor: (avgLoss < 0) ? Math.abs(avgWin / avgLoss) : 0,
             largestWin: largestWin,
             largestLoss: largestLoss,
-            sharpeRatio: 0, // TODO: Implement Sharpe ratio calculation
-            maxDrawdown: 0, // TODO: Implement max drawdown calculation
+            sharpeRatio: sharpeRatio,
+            maxDrawdown: maxDrawdown,
             topWinners: winners.sort((a, b) => b.pnl - a.pnl).slice(0, 10).map(trade => ({
               ...trade,
               entryDate: trade.entryDate ? new Date(trade.entryDate) : null,
@@ -800,6 +834,48 @@ INSERT OR IGNORE INTO settings (key, value) VALUES
           const stmt = this.db.prepare(sql);
           const row = stmt.get(...params);
           
+          // Get all trades for Sharpe ratio and drawdown calculations
+          let allTradesQuery = 'SELECT pnl, entry_date FROM trades WHERE pnl IS NOT NULL';
+          if (dateRange.startDate) {
+            allTradesQuery += ' AND DATE(entry_date) >= DATE(?)';
+          }
+          if (dateRange.endDate) {
+            allTradesQuery += ' AND DATE(entry_date) <= DATE(?)';
+          }
+          allTradesQuery += ' ORDER BY entry_date ASC';
+          
+          const allTradesStmt = this.db.prepare(allTradesQuery);
+          const allTrades = allTradesStmt.all(...params);
+          
+          // Calculate Sharpe Ratio (annualized)
+          let sharpeRatio = 0;
+          if (allTrades.length > 1) {
+            const returns = allTrades.map(t => t.pnl);
+            const avgReturn = returns.reduce((sum, r) => sum + r, 0) / returns.length;
+            const variance = returns.reduce((sum, r) => sum + Math.pow(r - avgReturn, 2), 0) / (returns.length - 1);
+            const stdDev = Math.sqrt(variance);
+            if (stdDev > 0) {
+              // Assuming ~252 trading days per year for annualization
+              sharpeRatio = (avgReturn / stdDev) * Math.sqrt(252);
+            }
+          }
+          
+          // Calculate Max Drawdown
+          let maxDrawdown = 0;
+          let peak = 0;
+          let cumulative = 0;
+          
+          allTrades.forEach(trade => {
+            cumulative += trade.pnl;
+            if (cumulative > peak) {
+              peak = cumulative;
+            }
+            const drawdown = peak > 0 ? ((peak - cumulative) / peak) * 100 : 0;
+            if (drawdown > maxDrawdown) {
+              maxDrawdown = drawdown;
+            }
+          });
+
           const metrics = {
             totalTrades: row.total_trades || 0,
             winningTrades: row.winning_trades || 0,
@@ -812,8 +888,8 @@ INSERT OR IGNORE INTO settings (key, value) VALUES
               Math.abs((row.avg_win || 0) / row.avg_loss) : 0,
             largestWin: row.largest_win || 0,
             largestLoss: row.largest_loss || 0,
-            sharpeRatio: 0, // TODO: Implement Sharpe ratio calculation
-            maxDrawdown: 0 // TODO: Implement max drawdown calculation
+            sharpeRatio: sharpeRatio,
+            maxDrawdown: maxDrawdown
           };
           
           // Add top 10 winners and losers
@@ -867,9 +943,25 @@ INSERT OR IGNORE INTO settings (key, value) VALUES
           const dailyData = {};
           
           this.tradesData.forEach(trade => {
-            const tradeDate = new Date(trade.entryDate);
+            // Use exitDate if available (when P&L was realized), otherwise use entryDate
+            const pnlDate = trade.exitDate || trade.entryDate;
+            const tradeDate = new Date(pnlDate);
             if (tradeDate.getFullYear() === targetYear && tradeDate.getMonth() + 1 === targetMonth) {
-              const dateKey = tradeDate.toISOString().split('T')[0]; // YYYY-MM-DD format
+              // Use toLocaleDateString('en-CA') to get YYYY-MM-DD in local timezone (avoid UTC shift)
+              const dateKey = tradeDate.toLocaleDateString('en-CA');
+              
+              // Debug logging for large losses
+              if (trade.pnl && trade.pnl < -700) {
+                console.log('Database.js Calendar Debug:', {
+                  symbol: trade.symbol,
+                  pnl: trade.pnl,
+                  exitDate: trade.exitDate,
+                  entryDate: trade.entryDate,
+                  pnlDate: pnlDate,
+                  parsedDate: tradeDate.toString(),
+                  dateKey: dateKey
+                });
+              }
               
               if (!dailyData[dateKey]) {
                 dailyData[dateKey] = {
@@ -901,14 +993,14 @@ INSERT OR IGNORE INTO settings (key, value) VALUES
         } else {
           const sql = `
             SELECT 
-              DATE(entry_date) as date,
+              DATE(COALESCE(exit_date, entry_date)) as date,
               SUM(CASE WHEN pnl IS NOT NULL THEN pnl ELSE 0 END) as daily_pnl,
               COUNT(*) as trade_count,
               SUM(CASE WHEN pnl > 0 THEN 1 ELSE 0 END) as wins
             FROM trades 
-            WHERE strftime('%m', entry_date) = ? 
-              AND strftime('%Y', entry_date) = ?
-            GROUP BY DATE(entry_date)
+            WHERE strftime('%m', COALESCE(exit_date, entry_date)) = ? 
+              AND strftime('%Y', COALESCE(exit_date, entry_date)) = ?
+            GROUP BY DATE(COALESCE(exit_date, entry_date))
             ORDER BY date
           `;
 
