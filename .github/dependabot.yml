@@ -9,6 +9,10 @@ updates:
       time: "09:00"
     # Allow both direct and indirect dependency updates
     open-pull-requests-limit: 10
+    # Ignore major version updates (only allow minor and patch)
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
     # Group updates by type
     groups:
       production-dependencies:
@@ -38,8 +42,6 @@ updates:
           - "patch"
     # Security updates get their own PRs
     assignees:
-      - "appatalks"
-    reviewers:
       - "appatalks"
     commit-message:
       prefix: "deps"
