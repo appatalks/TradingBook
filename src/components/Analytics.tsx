@@ -14,6 +14,7 @@ import {
   Filler,
 } from 'chart.js';
 import { Bar, Line } from 'react-chartjs-2';
+import annotationPlugin from 'chartjs-plugin-annotation';
 
 ChartJS.register(
   CategoryScale,
@@ -24,14 +25,16 @@ ChartJS.register(
   Title,
   Tooltip,
   Legend,
-  Filler
+  Filler,
+  annotationPlugin
 );
 
 interface AnalyticsProps {
   trades: Trade[];
 }
 
-type TabType = 'overview' | 'detailed' | 'winloss' | 'drawdown';
+type TabType = 'overview' | 'detailed' | 'winloss' | 'drawdown' | 'washwatch';
+type TimeRangeType = 30 | 60 | 90 | 'ytd';
 
 const Analytics: React.FC<AnalyticsProps> = ({ trades }) => {
   const [metrics, setMetrics] = useState<PerformanceMetrics | null>(null);
@@ -41,7 +44,7 @@ const Analytics: React.FC<AnalyticsProps> = ({ trades }) => {
   });
   const [selectedSymbol, setSelectedSymbol] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<TabType>('overview');
-  const [timeRange, setTimeRange] = useState<30 | 60 | 90>(90);
+  const [timeRange, setTimeRange] = useState<TimeRangeType>(90);
 
   useEffect(() => {
     loadMetrics();
@@ -71,8 +74,18 @@ const Analytics: React.FC<AnalyticsProps> = ({ trades }) => {
       const pnlDate = t.exitDate || t.entryDate;
       if (!pnlDate) return false;
       const tradeDate = new Date(pnlDate);
-      const cutoffDate = new Date();
-      cutoffDate.setDate(cutoffDate.getDate() - timeRange);
+      
+      // Calculate cutoff date based on time range
+      let cutoffDate: Date;
+      if (timeRange === 'ytd') {
+        // Year to date - start of current year
+        cutoffDate = new Date(new Date().getFullYear(), 0, 1);
+      } else {
+        // Days-based ranges (30, 60, 90)
+        cutoffDate = new Date();
+        cutoffDate.setDate(cutoffDate.getDate() - timeRange);
+      }
+      
       return tradeDate >= cutoffDate;
     });
 
@@ -305,6 +318,105 @@ const Analytics: React.FC<AnalyticsProps> = ({ trades }) => {
     ],
   };
 
+  // Wash Sale Watch calculation
+  const washSaleRisks = useMemo(() => {
+    const riskMap = new Map<string, {
+      symbol: string;
+      lossDate: Date;
+      lossAmount: number;
+      safeDate: Date;
+      daysRemaining: number;
+      hasTrigger: boolean;
+      lossCount: number;
+    }>();
+
+    // Get trades with realized losses (closed positions)
+    const lossTrades = trades.filter(trade => {
+      if (!trade.exitDate || !trade.exitPrice) return false;
+      
+      const loss = trade.side === 'BUY' || trade.side === 'LONG'
+        ? (trade.exitPrice - trade.entryPrice) * trade.quantity
+        : (trade.entryPrice - trade.exitPrice) * trade.quantity;
+      
+      return loss < 0;
+    });
+
+    // For each loss trade, check for wash sale triggers
+    lossTrades.forEach(lossTrade => {
+      const lossDate = new Date(lossTrade.exitDate!);
+      const safeDate = new Date(lossDate);
+      safeDate.setDate(safeDate.getDate() + 30);
+      
+      const today = new Date();
+      const daysRemaining = Math.ceil((safeDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+      
+      // Only show if within the 30-day window
+      if (daysRemaining > 0) {
+        const lossAmount = lossTrade.side === 'BUY' || lossTrade.side === 'LONG'
+          ? (lossTrade.exitPrice! - lossTrade.entryPrice) * lossTrade.quantity
+          : (lossTrade.entryPrice - lossTrade.exitPrice!) * lossTrade.quantity;
+
+        const existing = riskMap.get(lossTrade.symbol);
+        
+        if (!existing) {
+          // First loss for this symbol - check for triggers
+          const hasTrigger = trades.some(trade => {
+            if (trade.symbol !== lossTrade.symbol || trade.id === lossTrade.id) return false;
+            
+            const entryDate = new Date(trade.entryDate);
+            const lossExitDate = new Date(lossTrade.exitDate!);
+            const thirtyDaysAfterLoss = new Date(lossExitDate);
+            thirtyDaysAfterLoss.setDate(thirtyDaysAfterLoss.getDate() + 30);
+            
+            return entryDate > lossExitDate && entryDate <= thirtyDaysAfterLoss;
+          });
+
+          riskMap.set(lossTrade.symbol, {
+            symbol: lossTrade.symbol,
+            lossDate,
+            lossAmount,
+            safeDate,
+            daysRemaining,
+            hasTrigger,
+            lossCount: 1
+          });
+        } else {
+          // Symbol already exists - update with most recent date and accumulate losses
+          if (lossDate > existing.lossDate) {
+            // This is a more recent loss - update date info but keep accumulated amount
+            const hasTrigger = trades.some(trade => {
+              if (trade.symbol !== lossTrade.symbol || trade.id === lossTrade.id) return false;
+              
+              const entryDate = new Date(trade.entryDate);
+              const lossExitDate = new Date(lossTrade.exitDate!);
+              const thirtyDaysAfterLoss = new Date(lossExitDate);
+              thirtyDaysAfterLoss.setDate(thirtyDaysAfterLoss.getDate() + 30);
+              
+              return entryDate > lossExitDate && entryDate <= thirtyDaysAfterLoss;
+            });
+
+            riskMap.set(lossTrade.symbol, {
+              symbol: lossTrade.symbol,
+              lossDate, // Most recent loss date
+              lossAmount: existing.lossAmount + lossAmount, // Accumulate all losses
+              safeDate, // Based on most recent loss
+              daysRemaining, // Based on most recent loss
+              hasTrigger: existing.hasTrigger || hasTrigger, // Triggered if any loss was triggered
+              lossCount: existing.lossCount + 1
+            });
+          } else {
+            // This is an older loss - just add to the amount
+            existing.lossAmount += lossAmount;
+            existing.lossCount += 1;
+          }
+        }
+      }
+    });
+
+    // Convert map to array and sort by days remaining (most urgent first)
+    return Array.from(riskMap.values()).sort((a, b) => a.daysRemaining - b.daysRemaining);
+  }, [trades]);
+
   const chartOptions = {
     responsive: true,
     maintainAspectRatio: false,
@@ -407,6 +519,16 @@ const Analytics: React.FC<AnalyticsProps> = ({ trades }) => {
             >
               Drawdown
             </button>
+            <button
+              onClick={() => setActiveTab('washwatch')}
+              className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
+                activeTab === 'washwatch'
+                  ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
+              }`}
+            >
+              Wash Watch
+            </button>
           </nav>
         </div>
 
@@ -443,6 +565,16 @@ const Analytics: React.FC<AnalyticsProps> = ({ trades }) => {
                 }`}
               >
                 90 Days
+              </button>
+              <button
+                onClick={() => setTimeRange('ytd')}
+                className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                  timeRange === 'ytd'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
+                }`}
+              >
+                YTD
               </button>
             </div>
           </div>
@@ -724,6 +856,31 @@ const Analytics: React.FC<AnalyticsProps> = ({ trades }) => {
                       max: 100,
                     },
                   },
+                  plugins: {
+                    ...chartOptions.plugins,
+                    annotation: {
+                      annotations: {
+                        targetLine: {
+                          type: 'line',
+                          yMin: 70,
+                          yMax: 70,
+                          borderColor: 'rgba(16, 185, 129, 0.3)',
+                          borderWidth: 2,
+                          borderDash: [5, 5],
+                          label: {
+                            display: true,
+                            content: 'Target: 70%',
+                            position: 'end',
+                            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                            color: 'rgba(16, 185, 129, 0.8)',
+                            font: {
+                              size: 11,
+                            },
+                          },
+                        },
+                      },
+                    },
+                  },
                 }} />
               </div>
             </div>
@@ -863,6 +1020,132 @@ const Analytics: React.FC<AnalyticsProps> = ({ trades }) => {
                   ))}
                 </tbody>
               </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Wash Watch Tab */}
+      {activeTab === 'washwatch' && (
+        <div className="space-y-6">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <div className="mb-4">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Wash Sale Watch</h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                Symbols you should avoid trading for 30 days after a loss to preserve your tax deduction
+              </p>
+            </div>
+
+            {washSaleRisks.length === 0 ? (
+              <div className="text-center py-12">
+                <svg
+                  className="mx-auto h-12 w-12 text-green-400"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+                <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-white">All Clear!</h3>
+                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                  No wash sale risks detected. You're safe to trade all symbols.
+                </p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full">
+                  <thead>
+                    <tr className="border-b border-gray-200 dark:border-gray-700">
+                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-500 dark:text-gray-400">Symbol</th>
+                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-500 dark:text-gray-400">Loss Date</th>
+                      <th className="text-right py-3 px-4 text-sm font-medium text-gray-500 dark:text-gray-400">Loss Amount</th>
+                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-500 dark:text-gray-400">Safe After</th>
+                      <th className="text-center py-3 px-4 text-sm font-medium text-gray-500 dark:text-gray-400">Days Left</th>
+                      <th className="text-center py-3 px-4 text-sm font-medium text-gray-500 dark:text-gray-400">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                    {washSaleRisks.map((risk, index) => (
+                      <tr key={index} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                        <td className="py-3 px-4 text-sm font-semibold text-gray-900 dark:text-white">
+                          {risk.symbol}
+                        </td>
+                        <td className="py-3 px-4 text-sm text-gray-600 dark:text-gray-400">
+                          {risk.lossDate.toLocaleDateString()}
+                        </td>
+                        <td className="py-3 px-4 text-sm text-right text-red-600 dark:text-red-400 font-medium">
+                          -${Math.abs(risk.lossAmount).toFixed(2)}
+                        </td>
+                        <td className="py-3 px-4 text-sm text-gray-600 dark:text-gray-400">
+                          {risk.safeDate.toLocaleDateString()}
+                        </td>
+                        <td className="py-3 px-4 text-center">
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                            risk.daysRemaining <= 7
+                              ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
+                              : risk.daysRemaining <= 14
+                              ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400'
+                              : 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
+                          }`}>
+                            {risk.daysRemaining}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 text-center">
+                          {risk.hasTrigger ? (
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400">
+                              ⚠️ Triggered
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400">
+                              ⏳ At Risk
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            <div className="mt-6 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+              <div className="flex">
+                <div className="flex-shrink-0">
+                  <svg
+                    className="h-5 w-5 text-blue-400"
+                    fill="currentColor"
+                    viewBox="0 0 20 20"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                </div>
+                <div className="ml-3 flex-1">
+                  <h3 className="text-sm font-medium text-blue-800 dark:text-blue-300">
+                    About Wash Sales
+                  </h3>
+                  <div className="mt-2 text-sm text-blue-700 dark:text-blue-400">
+                    <p>
+                      A wash sale occurs when you sell a security at a loss and repurchase the same or substantially 
+                      identical security within 30 days. The IRS disallows the loss deduction in such cases. 
+                      To safely claim your loss, wait 30 days after the loss before trading that symbol again.
+                    </p>
+                    <ul className="list-disc list-inside mt-2 space-y-1">
+                      <li><strong>⚠️ Triggered:</strong> You already repurchased this symbol within 30 days of the loss - wash sale applied</li>
+                      <li><strong>⏳ At Risk:</strong> Avoid trading this symbol until the "Safe After" date to preserve your tax loss</li>
+                      <li><strong>Days Left:</strong> Number of days remaining until you can safely trade without triggering a wash sale</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
