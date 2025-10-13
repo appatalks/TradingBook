@@ -46,13 +46,13 @@
   },
   "dependencies": {
     "better-sqlite3": "^12.4.1",
-    "chart.js": "^4.5.0",
+    "chart.js": "^4.5.1",
     "chartjs-plugin-annotation": "^3.1.0",
     "electron-is-dev": "^2.0.0",
     "react": "^18.2.0",
     "react-chartjs-2": "^5.3.0",
     "react-dom": "^18.2.0",
-    "react-router-dom": "^7.9.3"
+    "react-router-dom": "^7.9.4"
   },
   "devDependencies": {
     "@types/node": "^24.7.0",
