@@ -45,14 +45,14 @@
     "build-all": "npm run build && electron-builder --linux AppImage --win nsis portable"
   },
   "dependencies": {
-    "better-sqlite3": "^12.4.1",
-    "chart.js": "^4.5.0",
+    "better-sqlite3": "^12.4.6",
+    "chart.js": "^4.5.1",
     "chartjs-plugin-annotation": "^3.1.0",
     "electron-is-dev": "^2.0.0",
     "react": "^18.2.0",
-    "react-chartjs-2": "^5.3.0",
+    "react-chartjs-2": "^5.3.1",
     "react-dom": "^18.2.0",
-    "react-router-dom": "^7.9.3"
+    "react-router-dom": "^7.9.6"
   },
   "devDependencies": {
     "@types/node": "^24.7.0",
@@ -60,7 +60,7 @@
     "@types/react-dom": "^18.0.9",
     "autoprefixer": "^10.4.21",
     "concurrently": "^9.2.1",
-    "electron": "^38.2.2",
+    "electron": "^38.7.1",
     "electron-builder": "^26.0.12",
     "electron-rebuild": "^3.2.9",
     "postcss": "^8.4.20",
